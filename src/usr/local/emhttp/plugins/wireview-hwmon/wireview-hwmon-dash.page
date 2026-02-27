@@ -1,0 +1,109 @@
+Menu="Dashboard:0"
+Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'7.0.0','>=')"
+---
+<?PHP
+$mytiles['wireview-hwmon']['column2'] = <<<'EOT'
+<tbody title="_(WireView Pro II GPU Power Monitor)_" id="wireview-dash-tile">
+<tr>
+    <td>
+        <span class='tile-header'>
+        <span class='tile-header-left'>
+            <i class='fa fa-bolt f32'></i>
+            <div class='section'>_(WireView Pro II)_<br><span id="wv-dash-headline"></span><br><br></div>
+        </span>
+        <span class='tile-header-right'>
+            <span class='tile-header-right-controls'>
+            <a href="/Dashboard/Settings/wireview-hwmon/" title="_(Go to WireView settings)_">
+                <i class="fa fa-fw fa-cog control"></i>
+            </a>
+            </span>
+        </span>
+        </span>
+    </td>
+</tr>
+<tr class="header"><td><span class="w18">_(Status)_</span><span class="w36">_(Sensor)_</span><span class="w36">_(Reading)_</span></td></tr>
+</tbody>
+EOT;
+?>
+
+<script>
+function wireviewDashUpdate() {
+  $.getJSON('/plugins/wireview-hwmon/include/WireviewSensors.php', function(d) {
+    var $tile = $('#wireview-dash-tile');
+    $tile.find('tr.wv-data').remove();
+
+    if (!d.daemon_running || !d.sensors || !d.sensors.has_data) {
+      $('#wv-dash-headline').html('<i class="fa fa-circle orb grey-orb middle"></i> Offline');
+      return;
+    }
+
+    var s = d.sensors;
+    var totalP = s.total_power !== null ? (s.total_power / 1000000).toFixed(1) + ' W' : 'N/A';
+    var fault = s.fault_status && s.fault_status !== 0;
+    var orbClass = fault ? 'red-orb' : 'green-orb';
+    $('#wv-dash-headline').html('<i class="fa fa-circle orb ' + orbClass + ' middle"></i> ' + totalP);
+
+    var rows = '';
+    function row(color, name, reading) {
+      rows += '<tr class="wv-data"><td>';
+      rows += '<span class="w18"><i class="fa fa-circle orb ' + color + '-orb middle"></i></span>';
+      rows += '<span class="w36">' + name + '</span>';
+      rows += '<span class="w36">' + reading + '</span>';
+      rows += '</td></tr>';
+    }
+    function fmtV(mv) { return mv !== null ? (mv / 1000).toFixed(3) + ' V' : 'N/A'; }
+    function fmtA(ma) { return ma !== null ? (ma / 1000).toFixed(3) + ' A' : 'N/A'; }
+    function fmtW(uw) { return uw !== null ? (uw / 1000000).toFixed(2) + ' W' : 'N/A'; }
+    function fmtT(mc) { return mc !== null ? (mc / 1000).toFixed(1) + ' &deg;C' : 'N/A'; }
+
+    // Per-pin voltage, current, power
+    for (var i = 0; i < 6; i++) {
+      var v = s.voltage[i], c = s.current[i], p = s.pin_power[i];
+      if (v === null && c === null && p === null) continue;
+      row('green', 'Pin ' + (i+1) + ' Voltage', fmtV(v));
+      row('green', 'Pin ' + (i+1) + ' Current', fmtA(c));
+      row('green', 'Pin ' + (i+1) + ' Power', fmtW(p));
+    }
+
+    // Totals
+    row('green', 'Avg Voltage', fmtV(s.avg_voltage));
+    row('green', 'Total Current', fmtA(s.total_current));
+    row('green', 'Total Power', fmtW(s.total_power));
+
+    // Vdd
+    if (s.vdd !== null) row('green', 'Vdd Supply', fmtV(s.vdd));
+
+    // Temperatures
+    var tempNames = ['Onboard In', 'Onboard Out', 'External 1', 'External 2'];
+    for (var i = 0; i < 4; i++) {
+      if (s.temp[i] === null) continue;
+      var tc = fault ? 'red' : (s.temp[i] > 70000 ? 'orange' : 'green');
+      row(tc, tempNames[i] + ' Temp', fmtT(s.temp[i]));
+    }
+
+    // Fan duty
+    if (s.fan_duty !== null) row('green', 'Fan Duty', s.fan_duty + ' %');
+
+    // Fault status
+    if (s.fault_status !== null) {
+      var fc = s.fault_status !== 0 ? 'red' : 'green';
+      var fv = s.fault_status !== 0 ? 'FAULT 0x' + s.fault_status.toString(16) : 'OK';
+      row(fc, 'Fault Status', fv);
+    }
+
+    // Fault log
+    if (s.fault_log !== null) {
+      var flc = s.fault_log !== 0 ? 'orange' : 'green';
+      var flv = s.fault_log !== 0 ? '0x' + s.fault_log.toString(16) : 'Clear';
+      row(flc, 'Fault Log', flv);
+    }
+
+    // PSU cap
+    if (s.psu_cap !== null) row('green', 'PSU Capability', s.psu_cap);
+
+    $tile.append(rows);
+  });
+}
+wireviewDashUpdate();
+var wireviewDashTimer = setInterval(wireviewDashUpdate, 2000);
+</script>

@@ -77,8 +77,11 @@ cp -a "$SRC_DIR/src/"* "$PKG_DIR/"
 install -m 755 /build/wireviewd "$PKG_DIR/usr/local/bin/wireviewd"
 install -m 755 /build/wireviewctl "$PKG_DIR/usr/local/bin/wireviewctl"
 
-# Make rc script executable
+# Fix ownership and permissions (Unraid expects root:root, executable PHP/scripts)
+chown -R root:root "$PKG_DIR"
 chmod 755 "$PKG_DIR/etc/rc.d/rc.wireviewd"
+chmod 755 "$PKG_DIR/usr/local/emhttp/plugins/wireview-hwmon/scripts/"*.sh 2>/dev/null || true
+chmod 755 "$PKG_DIR/usr/local/emhttp/plugins/wireview-hwmon/include/"*.php 2>/dev/null || true
 
 # Place kernel module
 mkdir -p "$PKG_DIR/lib/modules/${KVER}/extra"

@@ -8,6 +8,8 @@
 DAEMON="/usr/local/bin/wireviewd"
 PIDFILE="/var/run/wireviewd.pid"
 MODULE="wireview_hwmon"
+FAULT_MONITOR="/usr/local/emhttp/plugins/wireview-hwmon/scripts/wireview-fault-monitor.sh"
+FAULT_PIDFILE="/var/run/wireview-fault-monitor.pid"
 
 start() {
   if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
@@ -30,9 +32,22 @@ start() {
   $DAEMON &
   echo $! > "$PIDFILE"
   echo "wireviewd started (PID $(cat "$PIDFILE"))"
+
+  # Start fault monitor in background
+  if [ -x "$FAULT_MONITOR" ]; then
+    $FAULT_MONITOR &
+    echo $! > "$FAULT_PIDFILE"
+  fi
 }
 
 stop() {
+  # Stop fault monitor first
+  if [ -f "$FAULT_PIDFILE" ]; then
+    kill "$(cat "$FAULT_PIDFILE")" 2>/dev/null
+    rm -f "$FAULT_PIDFILE"
+  fi
+  rm -f /tmp/wireview-hwmon-fault-state
+
   if [ ! -f "$PIDFILE" ]; then
     echo "wireviewd is not running (no PID file)"
     # Try to kill by name anyway

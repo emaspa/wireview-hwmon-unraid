@@ -68,7 +68,7 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
 var wireviewTimer = null;
 
 function wireviewCtl(action) {
-  $.post('/plugins/<?=$plugin?>/WireviewSensors.php', {action: action}, function(data) {
+  $.post('/plugins/<?=$plugin?>/include/WireviewSensors.php', {action: action}, function(data) {
     if (data.message) {
       $('#wv-daemon-status').text(data.message);
     }
@@ -78,7 +78,7 @@ function wireviewCtl(action) {
 }
 
 function wireviewRefresh() {
-  $.getJSON('/plugins/<?=$plugin?>/WireviewSensors.php', function(data) {
+  $.getJSON('/plugins/<?=$plugin?>/include/WireviewSensors.php', function(data) {
     // Update status
     if (data.daemon_running) {
       $('#wv-daemon-status').text('Running').removeClass('wv-err').addClass('wv-ok');
