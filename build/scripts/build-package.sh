@@ -37,9 +37,14 @@ KSRC=$(cat /build/KERNEL_SOURCE)
 echo ""
 echo "=== Building kernel module ==="
 
-# Step 2: Build the kernel module
-UPSTREAM="${SRC_DIR}/upstream"
-make -C "$KSRC" M="$UPSTREAM" modules
+# Step 2: Copy upstream source to writable location (kernel build writes to M= dir)
+UPSTREAM="/build/upstream"
+cp -a "${SRC_DIR}/upstream" "$UPSTREAM"
+
+# KBUILD_MODPOST_WARN: modpost symbol warnings are expected when cross-compiling
+# against kernel headers without a full kernel build. The symbols resolve at
+# module load time on the actual Unraid system.
+make -C "$KSRC" M="$UPSTREAM" KBUILD_MODPOST_WARN=1 modules
 MODULE_FILE=$(find "$UPSTREAM" -name 'wireview_hwmon.ko' -o -name 'wireview_hwmon.ko.xz' | head -1)
 if [ -z "$MODULE_FILE" ]; then
     echo "ERROR: Kernel module build failed"
@@ -50,10 +55,10 @@ echo "Built: $MODULE_FILE"
 echo ""
 echo "=== Building userspace tools ==="
 
-# Step 3: Build userspace tools (statically linked with musl for portability)
-musl-gcc -Wall -Wextra -Wno-format-truncation -O2 -static \
+# Step 3: Build userspace tools (statically linked for portability across Unraid versions)
+gcc -Wall -Wextra -Wno-format-truncation -O2 -static \
     -o /build/wireviewd "$UPSTREAM/wireviewd.c"
-musl-gcc -Wall -Wextra -O2 -static \
+gcc -Wall -Wextra -O2 -static \
     -o /build/wireviewctl "$UPSTREAM/wireviewctl.c"
 
 echo "Built: wireviewd, wireviewctl"

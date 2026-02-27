@@ -13,9 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     xz-utils \
     musl-tools \
+    musl-dev \
+    linux-libc-dev \
     squashfs-tools \
     ca-certificates \
     kmod \
+    unzip \
+    file \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
