@@ -32,28 +32,58 @@ Search for **WireView** in the Unraid Community Applications plugin store.
 | `wireview_hwmon.ko` | Kernel module exposing sensors via `/sys/class/hwmon/` |
 | `wireviewd` | Daemon that reads the USB device and feeds data to the kernel module |
 | `wireviewctl` | CLI tool for querying sensors and sending device commands |
-| Web GUI | Live sensor dashboard under **Settings > Utilities > WireView Pro II** |
+| Web GUI | Dashboard tile with live readings + full device configuration page |
+| Fault monitor | Background service that sends Unraid notifications on fault events |
 
-## Web GUI
+## Dashboard Tile
 
-The plugin adds a page to the Unraid web interface at **Settings > Utilities > WireView Pro II** showing:
+The plugin adds a movable tile to the Unraid dashboard showing live sensor readings organized into sections:
 
-- Per-pin and total voltage, current, and power
-- Temperature readings (onboard and external probes)
-- Fan duty cycle, fault status
+- **Voltage** — per-pin and average
+- **Current** — per-pin and total
+- **Power** — per-pin and total
+- **Temperature** — onboard and external probes
+- **Status** — fan duty, fault status/log, PSU capability
+
+Data auto-refreshes every 2 seconds with color-coded status orbs (green/orange/red).
+
+## Settings Page
+
+Under **Settings > Utilities > WireView Pro II**, the plugin provides:
+
 - Daemon start/stop/restart controls
-- Device info (firmware version, UID)
+- Device info (firmware version, UID, build string)
+- Full device configuration matching the WireView II Pro GUI app:
+  - **General** — friendly name
+  - **Fan Control** — mode (curve/fixed), temperature source, duty min/max, temp min/max
+  - **Protection Thresholds** — OCP, wire OCP, OPP, temperature fault, current imbalance
+  - **Fault Response** — per-fault-type enable/disable for display, buzzer, soft power, hard power
+  - **Display** — backlight, theme, rotation, timeout mode, cycle screens
+  - **Measurement** — current scale, power scale, averaging period, logging interval
+- NVM controls (save/load/factory reset)
+- Clear faults
 
-Sensor data auto-refreshes every 2 seconds.
+## Fault Alerts
+
+A background monitor polls the device every 30 seconds and sends Unraid notifications on:
+
+- Fault state transitions (alert when fault detected, normal when cleared)
+- High temperature warnings (above 80°C)
 
 ## CLI usage
 
 ```bash
-# Read all sensors
-wireviewctl sensors
-
 # Show device info
 wireviewctl info
+
+# Read device config (hex blob)
+wireviewctl read-config
+
+# Write device config from file
+wireviewctl write-config /path/to/config.hex
+
+# Save config to device NVM
+wireviewctl nvm store
 
 # Clear fault log
 wireviewctl clear-faults
@@ -61,6 +91,8 @@ wireviewctl clear-faults
 # Change on-device display
 wireviewctl screen main
 wireviewctl screen temp
+wireviewctl screen pause
+wireviewctl screen resume
 ```
 
 ## Supported Unraid versions
