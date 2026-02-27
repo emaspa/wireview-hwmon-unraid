@@ -1,0 +1,92 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+  workflow_dispatch:
+    inputs:
+      unraid_versions:
+        description: 'Comma-separated Unraid versions to build for'
+        required: false
+        default: '7.0.0,7.1.0,7.2.0,7.2.3'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        unraid_version: ${{ fromJSON(format('["{0}"]', join(fromJSON(format('["{0}"]', replace(github.event.inputs.unraid_versions || '7.0.0,7.1.0,7.2.0,7.2.3', ',', '","'))), '","'))) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache Unraid downloads
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: unraid-${{ matrix.unraid_version }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=dev-$(date +%Y.%m.%d)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build package
+        run: |
+          mkdir -p output cache
+          docker build -t wireview-builder \
+            --build-arg UNRAID_VERSION=${{ matrix.unraid_version }} \
+            build/
+          docker run --rm \
+            -v "${{ github.workspace }}:/src:ro" \
+            -v "${{ github.workspace }}/output:/output" \
+            -v "${{ github.workspace }}/cache:/cache" \
+            -e UNRAID_VERSION=${{ matrix.unraid_version }} \
+            -e PLUGIN_VERSION=${{ steps.version.outputs.version }} \
+            wireview-builder
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-unraid-${{ matrix.unraid_version }}
+          path: output/*.txz
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+
+      - name: List packages
+        run: ls -lh packages/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            packages/*.txz
+            wireview-hwmon.plg
+          generate_release_notes: true
+          draft: false

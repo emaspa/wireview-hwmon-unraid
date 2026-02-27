@@ -1,0 +1,12 @@
+              |-----handy-ruler------------------------------------------------------|
+wireview-hwmon: wireview-hwmon (WireView Pro II GPU power monitor for Unraid)
+wireview-hwmon:
+wireview-hwmon: Kernel module, daemon, and CLI tool that expose Thermal Grizzly
+wireview-hwmon: WireView Pro II GPU power monitoring data through the Linux hwmon
+wireview-hwmon: subsystem. Provides voltage, current, power, and temperature
+wireview-hwmon: readings via standard sysfs attributes compatible with lm-sensors
+wireview-hwmon: and other monitoring tools.
+wireview-hwmon:
+wireview-hwmon: Homepage: https://github.com/emaspa/wireview-hwmon-unraid
+wireview-hwmon:
+wireview-hwmon:

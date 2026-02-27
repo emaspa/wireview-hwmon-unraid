@@ -1,0 +1,57 @@
+.wireview-section {
+  margin-bottom: 24px;
+}
+
+.wireview-section h2 {
+  border-bottom: 1px solid #606060;
+  padding-bottom: 4px;
+  margin-bottom: 10px;
+}
+
+.wireview-section h3 {
+  margin-top: 16px;
+  margin-bottom: 6px;
+}
+
+.wireview-info-table td {
+  padding: 2px 12px 2px 0;
+}
+
+.wireview-sensor-table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 700px;
+}
+
+.wireview-sensor-table th,
+.wireview-sensor-table td {
+  padding: 4px 12px;
+  text-align: left;
+  border-bottom: 1px solid #404040;
+}
+
+.wireview-sensor-table th {
+  font-weight: bold;
+  border-bottom: 2px solid #606060;
+}
+
+.wv-total-row td {
+  font-weight: bold;
+  border-top: 2px solid #606060;
+}
+
+.wv-ok {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.wv-err {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.wv-btn {
+  margin-right: 6px;
+  padding: 4px 16px;
+  cursor: pointer;
+}

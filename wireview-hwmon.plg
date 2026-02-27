@@ -1,0 +1,107 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+  <!ENTITY name      "wireview-hwmon">
+  <!ENTITY author    "emaspa">
+  <!ENTITY version   "2026.02.27">
+  <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
+  <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
+  <!ENTITY support   "&repo;/issues">
+  <!ENTITY launch    "Utilities/WireviewHwmon">
+]>
+
+<PLUGIN name="&name;" author="&author;" version="&version;"
+  pluginURL="&pluginURL;" support="&support;" launch="&launch;"
+  icon="bolt" min="7.0.0">
+
+  <CHANGES>
+## &version;
+- Initial release
+- Kernel module, daemon, and CLI tool for WireView Pro II
+- Unraid web GUI with live sensor display
+  </CHANGES>
+
+  <!-- Determine kernel version and download matching package -->
+  <FILE Run="/bin/bash">
+  <INLINE>
+#!/bin/bash
+PLUGIN="&name;"
+REPO="&repo;"
+VERSION="&version;"
+KVER=$(uname -r)
+
+echo "--- Installing ${PLUGIN} v${VERSION} for kernel ${KVER} ---"
+
+# Download the matching package from GitHub Releases
+PKG_URL="${REPO}/releases/download/v${VERSION}/${PLUGIN}-${VERSION}-x86_64-${KVER}.txz"
+PKG_FILE="/tmp/${PLUGIN}.txz"
+
+echo "Downloading ${PKG_URL}..."
+wget -q -O "${PKG_FILE}" "${PKG_URL}"
+if [ $? -ne 0 ]; then
+  echo "ERROR: Failed to download package for kernel ${KVER}."
+  echo "Your Unraid kernel version may not be supported yet."
+  echo "Check ${REPO}/releases for available packages."
+  rm -f "${PKG_FILE}"
+  exit 1
+fi
+
+# Install the Slackware package
+installpkg "${PKG_FILE}"
+rm -f "${PKG_FILE}"
+
+# Rebuild module dependency list
+depmod -a
+
+# Load kernel module
+modprobe wireview_hwmon 2>/dev/null || {
+  echo "WARNING: Could not load wireview_hwmon module."
+  echo "It will be loaded when the daemon starts."
+}
+
+# Reload udev rules
+udevadm control --reload-rules 2>/dev/null
+udevadm trigger 2>/dev/null
+
+# Start the daemon
+if [ -x /etc/rc.d/rc.wireviewd ]; then
+  /etc/rc.d/rc.wireviewd start
+fi
+
+echo "--- ${PLUGIN} installed successfully ---"
+  </INLINE>
+  </FILE>
+
+  <!-- Removal script -->
+  <FILE Run="/bin/bash" Method="remove">
+  <INLINE>
+#!/bin/bash
+PLUGIN="&name;"
+
+echo "--- Removing ${PLUGIN} ---"
+
+# Stop the daemon
+if [ -x /etc/rc.d/rc.wireviewd ]; then
+  /etc/rc.d/rc.wireviewd stop
+fi
+
+# Unload kernel module
+rmmod wireview_hwmon 2>/dev/null
+
+# Remove the Slackware package
+removepkg "${PLUGIN}" 2>/dev/null
+
+# Rebuild module dependency list
+depmod -a
+
+# Reload udev rules
+udevadm control --reload-rules 2>/dev/null
+udevadm trigger 2>/dev/null
+
+# Clean up plugin config directory
+rm -rf /boot/config/plugins/${PLUGIN}
+
+echo "--- ${PLUGIN} removed ---"
+  </INLINE>
+  </FILE>
+
+</PLUGIN>

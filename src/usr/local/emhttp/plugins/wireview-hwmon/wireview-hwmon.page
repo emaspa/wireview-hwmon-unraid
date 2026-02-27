@@ -1,0 +1,170 @@
+Menu="Utilities"
+Title="WireView Pro II"
+Icon="bolt"
+---
+<?php
+/* WireView Pro II - Unraid Plugin GUI */
+
+$plugin = "wireview-hwmon";
+$running = trim(shell_exec("pgrep -x wireviewd 2>/dev/null")) !== "";
+$moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")) !== "0";
+?>
+
+<link rel="stylesheet" href="/plugins/<?=$plugin?>/wireview-hwmon.css">
+
+<div id="wireview-status" class="wireview-section">
+  <h2>Status</h2>
+  <table class="wireview-info-table">
+    <tr>
+      <td>Kernel Module:</td>
+      <td><span id="wv-module-status" class="<?=$moduleLoaded ? 'wv-ok' : 'wv-err'?>"><?=$moduleLoaded ? 'Loaded' : 'Not Loaded'?></span></td>
+    </tr>
+    <tr>
+      <td>Daemon:</td>
+      <td><span id="wv-daemon-status" class="<?=$running ? 'wv-ok' : 'wv-err'?>"><?=$running ? 'Running' : 'Stopped'?></span></td>
+    </tr>
+  </table>
+
+  <div style="margin-top: 10px;">
+    <button onclick="wireviewCtl('start')" class="wv-btn">Start</button>
+    <button onclick="wireviewCtl('stop')" class="wv-btn">Stop</button>
+    <button onclick="wireviewCtl('restart')" class="wv-btn">Restart</button>
+  </div>
+</div>
+
+<div id="wireview-device" class="wireview-section" style="display:none;">
+  <h2>Device Info</h2>
+  <table class="wireview-info-table">
+    <tbody id="wv-device-info"></tbody>
+  </table>
+</div>
+
+<div id="wireview-sensors" class="wireview-section">
+  <h2>Sensor Readings</h2>
+  <div id="wv-no-data" class="wv-err" style="display:none;">No sensor data available. Check that the WireView Pro II is connected via USB.</div>
+
+  <div id="wv-sensor-tables" style="display:none;">
+    <h3>Power</h3>
+    <table class="wireview-sensor-table">
+      <thead><tr><th>Channel</th><th>Voltage (V)</th><th>Current (A)</th><th>Power (W)</th></tr></thead>
+      <tbody id="wv-power-table"></tbody>
+    </table>
+
+    <h3>Temperature</h3>
+    <table class="wireview-sensor-table">
+      <thead><tr><th>Sensor</th><th>Temperature</th></tr></thead>
+      <tbody id="wv-temp-table"></tbody>
+    </table>
+
+    <h3>Misc</h3>
+    <table class="wireview-sensor-table">
+      <thead><tr><th>Attribute</th><th>Value</th></tr></thead>
+      <tbody id="wv-misc-table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+var wireviewTimer = null;
+
+function wireviewCtl(action) {
+  $.post('/plugins/<?=$plugin?>/WireviewSensors.php', {action: action}, function(data) {
+    if (data.message) {
+      $('#wv-daemon-status').text(data.message);
+    }
+    // Refresh after a short delay to let daemon start/stop
+    setTimeout(wireviewRefresh, 1500);
+  }, 'json');
+}
+
+function wireviewRefresh() {
+  $.getJSON('/plugins/<?=$plugin?>/WireviewSensors.php', function(data) {
+    // Update status
+    if (data.daemon_running) {
+      $('#wv-daemon-status').text('Running').removeClass('wv-err').addClass('wv-ok');
+    } else {
+      $('#wv-daemon-status').text('Stopped').removeClass('wv-ok').addClass('wv-err');
+    }
+    if (data.module_loaded) {
+      $('#wv-module-status').text('Loaded').removeClass('wv-err').addClass('wv-ok');
+    } else {
+      $('#wv-module-status').text('Not Loaded').removeClass('wv-ok').addClass('wv-err');
+    }
+
+    // Device info
+    if (data.device_info) {
+      var html = '';
+      $.each(data.device_info, function(key, val) {
+        html += '<tr><td>' + key + ':</td><td>' + val + '</td></tr>';
+      });
+      $('#wv-device-info').html(html);
+      $('#wireview-device').show();
+    }
+
+    // Sensor data
+    if (data.sensors && data.sensors.has_data) {
+      var s = data.sensors;
+      $('#wv-no-data').hide();
+      $('#wv-sensor-tables').show();
+
+      // Power table: per-pin rows + totals
+      var phtml = '';
+      for (var i = 0; i < 6; i++) {
+        var v = s.voltage[i] !== null ? (s.voltage[i] / 1000).toFixed(3) : 'N/A';
+        var c = s.current[i] !== null ? (s.current[i] / 1000).toFixed(3) : 'N/A';
+        var p = s.pin_power[i] !== null ? (s.pin_power[i] / 1000000).toFixed(2) : 'N/A';
+        phtml += '<tr><td>Pin ' + (i+1) + '</td><td>' + v + '</td><td>' + c + '</td><td>' + p + '</td></tr>';
+      }
+      // Totals row
+      var avgV = s.avg_voltage !== null ? (s.avg_voltage / 1000).toFixed(3) : 'N/A';
+      var totC = s.total_current !== null ? (s.total_current / 1000).toFixed(3) : 'N/A';
+      var totP = s.total_power !== null ? (s.total_power / 1000000).toFixed(2) : 'N/A';
+      phtml += '<tr class="wv-total-row"><td>Total</td><td>' + avgV + ' (avg)</td><td>' + totC + '</td><td>' + totP + '</td></tr>';
+      // Vdd row
+      if (s.vdd !== null) {
+        phtml += '<tr><td>Vdd (Supply)</td><td>' + (s.vdd / 1000).toFixed(3) + '</td><td></td><td></td></tr>';
+      }
+      $('#wv-power-table').html(phtml);
+
+      // Temperature table
+      var thtml = '';
+      var tempLabels = ['Onboard In', 'Onboard Out', 'External 1', 'External 2'];
+      for (var i = 0; i < 4; i++) {
+        var t = s.temp[i] !== null ? (s.temp[i] / 1000).toFixed(1) + ' &deg;C' : 'N/A';
+        thtml += '<tr><td>' + tempLabels[i] + '</td><td>' + t + '</td></tr>';
+      }
+      $('#wv-temp-table').html(thtml);
+
+      // Misc table
+      var mhtml = '';
+      if (s.fan_duty !== null) {
+        mhtml += '<tr><td>Fan Duty</td><td>' + s.fan_duty + '%</td></tr>';
+      }
+      if (s.fault_status !== null) {
+        mhtml += '<tr><td>Fault Status</td><td>' + (s.fault_status == '0' ? 'OK' : 'FAULT (' + s.fault_status + ')') + '</td></tr>';
+      }
+      if (s.fault_log !== null) {
+        mhtml += '<tr><td>Fault Log</td><td>' + (s.fault_log == '0' ? 'Clear' : s.fault_log) + '</td></tr>';
+      }
+      if (s.psu_cap !== null) {
+        mhtml += '<tr><td>PSU Capability</td><td>' + s.psu_cap + '</td></tr>';
+      }
+      $('#wv-misc-table').html(mhtml);
+    } else {
+      $('#wv-no-data').show();
+      $('#wv-sensor-tables').hide();
+    }
+  });
+}
+
+// Initial load and auto-refresh
+$(function() {
+  wireviewRefresh();
+  wireviewTimer = setInterval(wireviewRefresh, 2000);
+});
+
+// Stop refresh when leaving page
+$(window).on('beforeunload', function() {
+  if (wireviewTimer) clearInterval(wireviewTimer);
+});
+</script>
