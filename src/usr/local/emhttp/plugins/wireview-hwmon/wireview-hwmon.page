@@ -39,47 +39,106 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
   </table>
 </div>
 
-<div id="wireview-sensors" class="wireview-section">
-  <h2>Sensor Readings</h2>
-  <div id="wv-no-data" class="wv-err" style="display:none;">No sensor data available. Check that the WireView Pro II is connected via USB.</div>
+<div id="wireview-config" class="wireview-section">
+  <h2>Device Configuration</h2>
+  <div id="wv-config-loading">Loading configuration...</div>
+  <div id="wv-config-error" class="wv-err" style="display:none;"></div>
+  <div id="wv-config-success" class="wv-ok" style="display:none;"></div>
 
-  <div id="wv-sensor-tables" style="display:none;">
-    <h3>Power</h3>
-    <table class="wireview-sensor-table">
-      <thead><tr><th>Channel</th><th>Voltage (V)</th><th>Current (A)</th><th>Power (W)</th></tr></thead>
-      <tbody id="wv-power-table"></tbody>
+  <div id="wv-config-form" style="display:none;">
+    <!-- General -->
+    <h3>General</h3>
+    <table class="wireview-info-table">
+      <tr><td>Friendly Name:</td><td><input type="text" id="cfg-friendly-name" maxlength="31" size="32"></td></tr>
     </table>
 
-    <h3>Temperature</h3>
-    <table class="wireview-sensor-table">
-      <thead><tr><th>Sensor</th><th>Temperature</th></tr></thead>
-      <tbody id="wv-temp-table"></tbody>
+    <!-- Fan Control -->
+    <h3>Fan Control</h3>
+    <table class="wireview-info-table">
+      <tr><td>Fan Mode:</td><td><select id="cfg-fan-mode"></select></td></tr>
+      <tr><td>Temperature Source:</td><td><select id="cfg-fan-temp-source"></select></td></tr>
+      <tr><td>Duty Min (%):</td><td><input type="number" id="cfg-fan-duty-min" min="0" max="100" size="5"></td></tr>
+      <tr><td>Duty Max (%):</td><td><input type="number" id="cfg-fan-duty-max" min="0" max="100" size="5"></td></tr>
+      <tr><td>Temp Min (&deg;C):</td><td><input type="number" id="cfg-fan-temp-min" step="0.1" size="8"></td></tr>
+      <tr><td>Temp Max (&deg;C):</td><td><input type="number" id="cfg-fan-temp-max" step="0.1" size="8"></td></tr>
     </table>
 
-    <h3>Misc</h3>
-    <table class="wireview-sensor-table">
-      <thead><tr><th>Attribute</th><th>Value</th></tr></thead>
-      <tbody id="wv-misc-table"></tbody>
+    <!-- Protection Thresholds -->
+    <h3>Protection Thresholds</h3>
+    <table class="wireview-info-table">
+      <tr><td>Temperature Fault (&deg;C):</td><td><input type="number" id="cfg-ts-fault" step="0.1" size="8"></td></tr>
+      <tr><td>OCP per Pin (A):</td><td><input type="number" id="cfg-ocp" min="0" max="255" size="5"></td></tr>
+      <tr><td>Wire OCP (A):</td><td><input type="number" id="cfg-wire-ocp" step="0.1" min="0" max="25.5" size="5"></td></tr>
+      <tr><td>OPP (W):</td><td><input type="number" id="cfg-opp" min="0" max="65535" size="6"></td></tr>
+      <tr><td>Current Imbalance (%):</td><td><input type="number" id="cfg-imbalance" min="0" max="100" size="5"></td></tr>
+      <tr><td>Imbalance Min Load (A):</td><td><input type="number" id="cfg-imbalance-min" min="0" max="255" size="5"></td></tr>
+      <tr><td>Shutdown Wait (s):</td><td><input type="number" id="cfg-shutdown-wait" min="0" max="255" size="5"></td></tr>
     </table>
+
+    <!-- Fault Response -->
+    <h3>Fault Response</h3>
+    <table class="wireview-sensor-table" id="wv-fault-table">
+      <thead>
+        <tr>
+          <th>Fault Type</th>
+          <th>Display</th>
+          <th>Buzzer</th>
+          <th>Soft Power</th>
+          <th>Hard Power</th>
+        </tr>
+      </thead>
+      <tbody id="wv-fault-rows"></tbody>
+    </table>
+
+    <!-- Display -->
+    <h3>Display</h3>
+    <table class="wireview-info-table">
+      <tr><td>Backlight (%):</td><td><input type="number" id="cfg-backlight" min="0" max="100" size="5"></td></tr>
+      <tr><td>Theme:</td><td><select id="cfg-theme"></select></td></tr>
+      <tr><td>Rotation:</td><td><select id="cfg-display-rotation"></select></td></tr>
+      <tr><td>Timeout Mode:</td><td><select id="cfg-timeout-mode"></select></td></tr>
+      <tr><td>Cycle Time (s):</td><td><input type="number" id="cfg-cycle-time" min="0" max="255" size="5"></td></tr>
+      <tr><td>Timeout (s):</td><td><input type="number" id="cfg-timeout" min="0" max="255" size="5"></td></tr>
+    </table>
+
+    <h4>Cycle Screens</h4>
+    <div id="wv-cycle-screens"></div>
+
+    <!-- Measurement -->
+    <h3>Measurement</h3>
+    <table class="wireview-info-table">
+      <tr><td>Current Scale:</td><td><select id="cfg-current-scale"></select></td></tr>
+      <tr><td>Power Scale:</td><td><select id="cfg-power-scale"></select></td></tr>
+      <tr id="cfg-avg-row"><td>Averaging:</td><td><select id="cfg-average"></select></td></tr>
+      <tr><td>Logging Interval (s):</td><td><input type="number" id="cfg-logging-interval" min="0" max="255" size="5"></td></tr>
+    </table>
+
+    <!-- Actions -->
+    <div style="margin-top: 15px;">
+      <button onclick="wireviewSaveConfig()" class="wv-btn">Apply to Device</button>
+      <button onclick="wireviewNvm('store')" class="wv-btn">Save to NVM</button>
+      <button onclick="wireviewNvm('load')" class="wv-btn">Load from NVM</button>
+      <button onclick="wireviewNvm('reset')" class="wv-btn">Factory Reset</button>
+      <button onclick="wireviewClearFaults()" class="wv-btn">Clear Faults</button>
+    </div>
   </div>
 </div>
 
 <script>
 var wireviewTimer = null;
+var wvConfigData = null; // stores full config response for read-modify-write
 
 function wireviewCtl(action) {
   $.post('/plugins/<?=$plugin?>/include/WireviewSensors.php', {action: action}, function(data) {
     if (data.message) {
       $('#wv-daemon-status').text(data.message);
     }
-    // Refresh after a short delay to let daemon start/stop
     setTimeout(wireviewRefresh, 1500);
   }, 'json');
 }
 
 function wireviewRefresh() {
   $.getJSON('/plugins/<?=$plugin?>/include/WireviewSensors.php', function(data) {
-    // Update status
     if (data.daemon_running) {
       $('#wv-daemon-status').text('Running').removeClass('wv-err').addClass('wv-ok');
     } else {
@@ -91,7 +150,6 @@ function wireviewRefresh() {
       $('#wv-module-status').text('Not Loaded').removeClass('wv-ok').addClass('wv-err');
     }
 
-    // Device info
     if (data.device_info) {
       var html = '';
       $.each(data.device_info, function(key, val) {
@@ -100,70 +158,217 @@ function wireviewRefresh() {
       $('#wv-device-info').html(html);
       $('#wireview-device').show();
     }
+  });
+}
 
-    // Sensor data
-    if (data.sensors && data.sensors.has_data) {
-      var s = data.sensors;
-      $('#wv-no-data').hide();
-      $('#wv-sensor-tables').show();
+function wireviewLoadConfig() {
+  $('#wv-config-loading').show();
+  $('#wv-config-form').hide();
+  $('#wv-config-error').hide();
+  $.getJSON('/plugins/<?=$plugin?>/include/WireviewConfig.php', function(data) {
+    $('#wv-config-loading').hide();
+    if (data.error) {
+      $('#wv-config-error').text(data.error).show();
+      return;
+    }
+    wvConfigData = data;
+    var cfg = data.config;
+    var enums = data.enums;
 
-      // Power table: per-pin rows + totals
-      var phtml = '';
-      for (var i = 0; i < 6; i++) {
-        var v = s.voltage[i] !== null ? (s.voltage[i] / 1000).toFixed(3) : 'N/A';
-        var c = s.current[i] !== null ? (s.current[i] / 1000).toFixed(3) : 'N/A';
-        var p = s.pin_power[i] !== null ? (s.pin_power[i] / 1000000).toFixed(2) : 'N/A';
-        phtml += '<tr><td>Pin ' + (i+1) + '</td><td>' + v + '</td><td>' + c + '</td><td>' + p + '</td></tr>';
-      }
-      // Totals row
-      var avgV = s.avg_voltage !== null ? (s.avg_voltage / 1000).toFixed(3) : 'N/A';
-      var totC = s.total_current !== null ? (s.total_current / 1000).toFixed(3) : 'N/A';
-      var totP = s.total_power !== null ? (s.total_power / 1000000).toFixed(2) : 'N/A';
-      phtml += '<tr class="wv-total-row"><td>Total</td><td>' + avgV + ' (avg)</td><td>' + totC + '</td><td>' + totP + '</td></tr>';
-      // Vdd row
-      if (s.vdd !== null) {
-        phtml += '<tr><td>Vdd (Supply)</td><td>' + (s.vdd / 1000).toFixed(3) + '</td><td></td><td></td></tr>';
-      }
-      $('#wv-power-table').html(phtml);
+    // General
+    $('#cfg-friendly-name').val(cfg.friendly_name);
 
-      // Temperature table
-      var thtml = '';
-      var tempLabels = ['Onboard In', 'Onboard Out', 'External 1', 'External 2'];
-      for (var i = 0; i < 4; i++) {
-        var t = s.temp[i] !== null ? (s.temp[i] / 1000).toFixed(1) + ' &deg;C' : 'N/A';
-        thtml += '<tr><td>' + tempLabels[i] + '</td><td>' + t + '</td></tr>';
-      }
-      $('#wv-temp-table').html(thtml);
+    // Fan
+    populateSelect('#cfg-fan-mode', enums.fan_mode, cfg.fan_mode);
+    populateSelect('#cfg-fan-temp-source', enums.temp_source, cfg.fan_temp_source);
+    $('#cfg-fan-duty-min').val(cfg.fan_duty_min);
+    $('#cfg-fan-duty-max').val(cfg.fan_duty_max);
+    $('#cfg-fan-temp-min').val(cfg.fan_temp_min);
+    $('#cfg-fan-temp-max').val(cfg.fan_temp_max);
 
-      // Misc table
-      var mhtml = '';
-      if (s.fan_duty !== null) {
-        mhtml += '<tr><td>Fan Duty</td><td>' + s.fan_duty + '%</td></tr>';
-      }
-      if (s.fault_status !== null) {
-        mhtml += '<tr><td>Fault Status</td><td>' + (s.fault_status == '0' ? 'OK' : 'FAULT (' + s.fault_status + ')') + '</td></tr>';
-      }
-      if (s.fault_log !== null) {
-        mhtml += '<tr><td>Fault Log</td><td>' + (s.fault_log == '0' ? 'Clear' : s.fault_log) + '</td></tr>';
-      }
-      if (s.psu_cap !== null) {
-        mhtml += '<tr><td>PSU Capability</td><td>' + s.psu_cap + '</td></tr>';
-      }
-      $('#wv-misc-table').html(mhtml);
+    // Protection
+    $('#cfg-ts-fault').val(cfg.ts_fault_threshold);
+    $('#cfg-ocp').val(cfg.ocp_fault_threshold);
+    $('#cfg-wire-ocp').val(cfg.wire_ocp_fault_threshold);
+    $('#cfg-opp').val(cfg.opp_fault_threshold);
+    $('#cfg-imbalance').val(cfg.current_imbalance_threshold);
+    $('#cfg-imbalance-min').val(cfg.current_imbalance_min_load);
+    $('#cfg-shutdown-wait').val(cfg.shutdown_wait_time);
+
+    // Fault response table
+    var frows = '';
+    $.each(data.fault_bits, function(bit, name) {
+      var mask = 1 << parseInt(bit);
+      frows += '<tr><td>' + name + '</td>';
+      frows += '<td><input type="checkbox" class="fault-display" data-bit="' + bit + '"' + ((cfg.fault_display_enable & mask) ? ' checked' : '') + '></td>';
+      frows += '<td><input type="checkbox" class="fault-buzzer" data-bit="' + bit + '"' + ((cfg.fault_buzzer_enable & mask) ? ' checked' : '') + '></td>';
+      frows += '<td><input type="checkbox" class="fault-soft" data-bit="' + bit + '"' + ((cfg.fault_soft_power_enable & mask) ? ' checked' : '') + '></td>';
+      frows += '<td><input type="checkbox" class="fault-hard" data-bit="' + bit + '"' + ((cfg.fault_hard_power_enable & mask) ? ' checked' : '') + '></td>';
+      frows += '</tr>';
+    });
+    $('#wv-fault-rows').html(frows);
+
+    // Display
+    $('#cfg-backlight').val(cfg.backlight_duty);
+    populateSelect('#cfg-theme', enums.theme, cfg.theme);
+    populateSelect('#cfg-display-rotation', enums.display_rotation, cfg.display_rotation);
+    populateSelect('#cfg-timeout-mode', enums.timeout_mode, cfg.timeout_mode);
+    $('#cfg-cycle-time').val(cfg.cycle_time);
+    $('#cfg-timeout').val(cfg.timeout);
+
+    // Cycle screens checkboxes
+    var schtml = '';
+    $.each(data.screen_bits, function(bit, name) {
+      var mask = 1 << parseInt(bit);
+      schtml += '<label style="margin-right:12px;"><input type="checkbox" class="cycle-screen" data-bit="' + bit + '"' + ((cfg.cycle_screens & mask) ? ' checked' : '') + '> ' + name + '</label>';
+    });
+    $('#wv-cycle-screens').html(schtml);
+
+    // Measurement
+    populateSelect('#cfg-current-scale', enums.current_scale, cfg.current_scale);
+    populateSelect('#cfg-power-scale', enums.power_scale, cfg.power_scale);
+    if (cfg.average !== null) {
+      populateSelect('#cfg-average', enums.average, cfg.average);
+      $('#cfg-avg-row').show();
     } else {
-      $('#wv-no-data').show();
-      $('#wv-sensor-tables').hide();
+      $('#cfg-avg-row').hide();
+    }
+    $('#cfg-logging-interval').val(cfg.logging_interval);
+
+    $('#wv-config-form').show();
+  }).fail(function(jqXHR, textStatus, errorThrown) {
+    $('#wv-config-loading').hide();
+    $('#wv-config-error').text('Failed to load config: ' + textStatus + ' ' + errorThrown + ' (HTTP ' + jqXHR.status + ')').show();
+  });
+}
+
+function populateSelect(selector, options, selected) {
+  var $sel = $(selector).empty();
+  $.each(options, function(i, label) {
+    $sel.append($('<option>').val(i).text(label).prop('selected', i == selected));
+  });
+}
+
+function collectBitmask(cls) {
+  var mask = 0;
+  $('.' + cls).each(function() {
+    if ($(this).is(':checked')) mask |= (1 << parseInt($(this).data('bit')));
+  });
+  return mask;
+}
+
+function wireviewSaveConfig() {
+  if (!wvConfigData) { alert('Config not loaded'); return; }
+
+  var cfg = {
+    friendly_name: $('#cfg-friendly-name').val(),
+    fan_mode: parseInt($('#cfg-fan-mode').val()),
+    fan_temp_source: parseInt($('#cfg-fan-temp-source').val()),
+    fan_duty_min: parseInt($('#cfg-fan-duty-min').val()),
+    fan_duty_max: parseInt($('#cfg-fan-duty-max').val()),
+    fan_temp_min: parseFloat($('#cfg-fan-temp-min').val()),
+    fan_temp_max: parseFloat($('#cfg-fan-temp-max').val()),
+    backlight_duty: parseInt($('#cfg-backlight').val()),
+    fault_display_enable: collectBitmask('fault-display'),
+    fault_buzzer_enable: collectBitmask('fault-buzzer'),
+    fault_soft_power_enable: collectBitmask('fault-soft'),
+    fault_hard_power_enable: collectBitmask('fault-hard'),
+    ts_fault_threshold: parseFloat($('#cfg-ts-fault').val()),
+    ocp_fault_threshold: parseInt($('#cfg-ocp').val()),
+    wire_ocp_fault_threshold: parseFloat($('#cfg-wire-ocp').val()),
+    opp_fault_threshold: parseInt($('#cfg-opp').val()),
+    current_imbalance_threshold: parseInt($('#cfg-imbalance').val()),
+    current_imbalance_min_load: parseInt($('#cfg-imbalance-min').val()),
+    shutdown_wait_time: parseInt($('#cfg-shutdown-wait').val()),
+    logging_interval: parseInt($('#cfg-logging-interval').val()),
+    current_scale: parseInt($('#cfg-current-scale').val()),
+    power_scale: parseInt($('#cfg-power-scale').val()),
+    theme: parseInt($('#cfg-theme').val()),
+    display_rotation: parseInt($('#cfg-display-rotation').val()),
+    timeout_mode: parseInt($('#cfg-timeout-mode').val()),
+    cycle_screens: collectBitmask('cycle-screen'),
+    cycle_time: parseInt($('#cfg-cycle-time').val()),
+    timeout: parseInt($('#cfg-timeout').val())
+  };
+
+  if (wvConfigData.config.average !== null) {
+    cfg.average = parseInt($('#cfg-average').val());
+  }
+
+  var payload = {
+    raw_hex: wvConfigData.raw_hex,
+    config_version: wvConfigData.config_version,
+    config: cfg
+  };
+
+  $('#wv-config-success').hide();
+  $('#wv-config-error').hide();
+
+  $.ajax({
+    url: '/plugins/<?=$plugin?>/include/WireviewConfig.php',
+    type: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify(payload),
+    dataType: 'json',
+    success: function(data) {
+      if (data.error) {
+        $('#wv-config-error').text(data.error).show();
+      } else {
+        $('#wv-config-success').text('Config applied to device.').show();
+        setTimeout(function() { $('#wv-config-success').fadeOut(); }, 3000);
+        wireviewLoadConfig();
+      }
+    },
+    error: function() {
+      $('#wv-config-error').text('Failed to write config.').show();
     }
   });
 }
 
-// Initial load and auto-refresh
+function wireviewNvm(cmd) {
+  var output = '';
+  $.ajax({
+    url: '/plugins/<?=$plugin?>/include/WireviewConfig.php',
+    type: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify({nvm: cmd}),
+    dataType: 'json',
+    success: function(data) {
+      if (data.error) {
+        $('#wv-config-error').text(data.error).show();
+      } else {
+        $('#wv-config-success').text(data.message || 'NVM ' + cmd + ' done.').show();
+        setTimeout(function() { $('#wv-config-success').fadeOut(); }, 3000);
+        if (cmd === 'load' || cmd === 'reset') wireviewLoadConfig();
+      }
+    }
+  });
+}
+
+function wireviewClearFaults() {
+  $.ajax({
+    url: '/plugins/<?=$plugin?>/include/WireviewConfig.php',
+    type: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify({clear_faults: true}),
+    dataType: 'json',
+    success: function(data) {
+      if (data.error) {
+        $('#wv-config-error').text(data.error).show();
+      } else {
+        $('#wv-config-success').text('Faults cleared.').show();
+        setTimeout(function() { $('#wv-config-success').fadeOut(); }, 3000);
+      }
+    }
+  });
+}
+
 $(function() {
   wireviewRefresh();
-  wireviewTimer = setInterval(wireviewRefresh, 2000);
+  wireviewLoadConfig();
+  wireviewTimer = setInterval(wireviewRefresh, 5000);
 });
 
-// Stop refresh when leaving page
 $(window).on('beforeunload', function() {
   if (wireviewTimer) clearInterval(wireviewTimer);
 });

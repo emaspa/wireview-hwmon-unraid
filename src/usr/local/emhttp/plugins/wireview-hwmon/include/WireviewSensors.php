@@ -116,7 +116,9 @@ function readSensors(string $path): array {
     // Fault status/log (custom attributes)
     $data['fault_status'] = readSysfs("$path/fault_status_raw");
     $data['fault_log'] = readSysfs("$path/fault_log_raw");
-    $data['psu_cap'] = readSysfs("$path/psu_cap");
+    $psuRaw = readSysfs("$path/psu_cap");
+    $psuNames = ['600W', '450W', '300W', '150W'];
+    $data['psu_cap'] = ($psuRaw !== null && isset($psuNames[$psuRaw])) ? $psuNames[$psuRaw] : $psuRaw;
 
     // Check if we got any valid data
     if ($data['total_power'] !== null || $data['avg_voltage'] !== null) {

@@ -30,7 +30,7 @@ EOT;
 function wireviewDashUpdate() {
   $.getJSON('/plugins/wireview-hwmon/include/WireviewSensors.php', function(d) {
     var $tile = $('#wireview-dash-tile');
-    $tile.find('tr.wv-data').remove();
+    $tile.find('tr.wv-data,tr.wv-hdr').remove();
 
     if (!d.daemon_running || !d.sensors || !d.sensors.has_data) {
       $('#wv-dash-headline').html('<i class="fa fa-circle orb grey-orb middle"></i> Offline');
@@ -44,6 +44,10 @@ function wireviewDashUpdate() {
     $('#wv-dash-headline').html('<i class="fa fa-circle orb ' + orbClass + ' middle"></i> ' + totalP);
 
     var rows = '';
+    function section(title) {
+      rows += '<tr class="wv-hdr"><td style="height:8px"></td></tr>';
+      rows += '<tr class="wv-hdr"><td><span class="w18"></span><span class="w72">' + title + '</span></td></tr>';
+    }
     function row(color, name, reading) {
       rows += '<tr class="wv-data"><td>';
       rows += '<span class="w18"><i class="fa fa-circle orb ' + color + '-orb middle"></i></span>';
@@ -56,49 +60,56 @@ function wireviewDashUpdate() {
     function fmtW(uw) { return uw !== null ? (uw / 1000000).toFixed(2) + ' W' : 'N/A'; }
     function fmtT(mc) { return mc !== null ? (mc / 1000).toFixed(1) + ' &deg;C' : 'N/A'; }
 
-    // Per-pin voltage, current, power
+    // Voltage section
+    section('Voltage');
     for (var i = 0; i < 6; i++) {
-      var v = s.voltage[i], c = s.current[i], p = s.pin_power[i];
-      if (v === null && c === null && p === null) continue;
-      row('green', 'Pin ' + (i+1) + ' Voltage', fmtV(v));
-      row('green', 'Pin ' + (i+1) + ' Current', fmtA(c));
-      row('green', 'Pin ' + (i+1) + ' Power', fmtW(p));
+      if (s.voltage[i] === null) continue;
+      row('green', 'Pin ' + (i+1), fmtV(s.voltage[i]));
     }
-
-    // Totals
-    row('green', 'Avg Voltage', fmtV(s.avg_voltage));
-    row('green', 'Total Current', fmtA(s.total_current));
-    row('green', 'Total Power', fmtW(s.total_power));
-
-    // Vdd
+    row('green', 'Average', fmtV(s.avg_voltage));
     if (s.vdd !== null) row('green', 'Vdd Supply', fmtV(s.vdd));
 
-    // Temperatures
+    // Current section
+    section('Current');
+    for (var i = 0; i < 6; i++) {
+      if (s.current[i] === null) continue;
+      row('green', 'Pin ' + (i+1), fmtA(s.current[i]));
+    }
+    row('green', 'Total', fmtA(s.total_current));
+
+    // Power section
+    section('Power');
+    for (var i = 0; i < 6; i++) {
+      if (s.pin_power[i] === null) continue;
+      row('green', 'Pin ' + (i+1), fmtW(s.pin_power[i]));
+    }
+    row('green', 'Total', fmtW(s.total_power));
+
+    // Temperature section
+    section('Temperature');
     var tempNames = ['Onboard In', 'Onboard Out', 'External 1', 'External 2'];
     for (var i = 0; i < 4; i++) {
       if (s.temp[i] === null) continue;
       var tc = fault ? 'red' : (s.temp[i] > 70000 ? 'orange' : 'green');
-      row(tc, tempNames[i] + ' Temp', fmtT(s.temp[i]));
+      row(tc, tempNames[i], fmtT(s.temp[i]));
     }
 
-    // Fan duty
+    // Status section
+    section('Status');
     if (s.fan_duty !== null) row('green', 'Fan Duty', s.fan_duty + ' %');
 
-    // Fault status
     if (s.fault_status !== null) {
       var fc = s.fault_status !== 0 ? 'red' : 'green';
       var fv = s.fault_status !== 0 ? 'FAULT 0x' + s.fault_status.toString(16) : 'OK';
       row(fc, 'Fault Status', fv);
     }
 
-    // Fault log
     if (s.fault_log !== null) {
       var flc = s.fault_log !== 0 ? 'orange' : 'green';
       var flv = s.fault_log !== 0 ? '0x' + s.fault_log.toString(16) : 'Clear';
       row(flc, 'Fault Log', flv);
     }
 
-    // PSU cap
     if (s.psu_cap !== null) row('green', 'PSU Capability', s.psu_cap);
 
     $tile.append(rows);
