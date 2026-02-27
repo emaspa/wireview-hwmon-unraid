@@ -5,9 +5,11 @@
 #
 # Usage: prepare-kernel.sh <UNRAID_VERSION>
 #
-# Downloads the Unraid release zip, extracts bzmodules (squashfs) and bzroot
-# (initramfs) to obtain the kernel version and configuration, then downloads
-# the matching kernel source from kernel.org and prepares it for building.
+# 1. Downloads the Unraid release zip and extracts bzmodules to determine
+#    the exact kernel version (e.g. 6.12.54-Unraid).
+# 2. Downloads pre-configured kernel source from ich777/unraid_kernel
+#    GitHub releases (includes the correct .config for the Unraid kernel).
+# 3. Runs `make modules_prepare` to generate headers for module builds.
 #
 set -euo pipefail
 
@@ -20,7 +22,8 @@ mkdir -p "$WORK_DIR" "$CACHE_DIR"
 
 echo "=== Preparing kernel headers for Unraid ${UNRAID_VERSION} ==="
 
-# Download Unraid release zip
+# ── Step 1: Download Unraid release and extract kernel version ──────────
+
 ARCHIVE="unRAIDServer-${UNRAID_VERSION}-x86_64.zip"
 UNRAID_ZIP="$CACHE_DIR/${ARCHIVE}"
 if [ ! -f "$UNRAID_ZIP" ] || ! unzip -t "$UNRAID_ZIP" > /dev/null 2>&1; then
@@ -65,20 +68,17 @@ fi
 
 echo "Download OK ($(du -h "$UNRAID_ZIP" | cut -f1))"
 
-# Extract bzroot and bzmodules from the zip
+# Extract bzmodules from the zip to determine kernel version
 echo "Extracting Unraid release..."
 cd "$WORK_DIR"
-# Files may be at top level or inside a subdirectory
-unzip -o -j "$UNRAID_ZIP" "*/bzroot" "*/bzmodules" "*/bzimage" 2>/dev/null || \
-unzip -o -j "$UNRAID_ZIP" "bzroot" "bzmodules" "bzimage" 2>/dev/null || {
-    echo "Trying to extract all files and find bzroot/bzmodules..."
+unzip -o -j "$UNRAID_ZIP" "*/bzmodules" 2>/dev/null || \
+unzip -o -j "$UNRAID_ZIP" "bzmodules" 2>/dev/null || {
+    echo "Trying to extract all files and find bzmodules..."
     unzip -o "$UNRAID_ZIP" -d "$WORK_DIR/unraid-extract"
-    for f in bzroot bzmodules bzimage; do
-        found=$(find "$WORK_DIR/unraid-extract" -name "$f" -type f | head -1)
-        if [ -n "$found" ]; then
-            cp "$found" "$WORK_DIR/$f"
-        fi
-    done
+    found=$(find "$WORK_DIR/unraid-extract" -name "bzmodules" -type f | head -1)
+    if [ -n "$found" ]; then
+        cp "$found" "$WORK_DIR/bzmodules"
+    fi
 }
 
 if [ ! -f "$WORK_DIR/bzmodules" ]; then
@@ -98,7 +98,6 @@ for modpath in "$WORK_DIR/modules/lib/modules" "$WORK_DIR/modules/modules"; do
     if [ -d "$modpath" ]; then
         KVER=$(ls "$modpath" 2>/dev/null | grep -E '^[0-9]+\.' | head -1)
         if [ -n "$KVER" ]; then
-            MODULES_BASE="$modpath"
             break
         fi
     fi
@@ -109,83 +108,75 @@ if [ -z "$KVER" ]; then
 fi
 echo "Kernel version: $KVER"
 
-# Extract base kernel version (e.g., "6.12.54" from "6.12.54-Unraid")
-BASE_KVER=$(echo "$KVER" | sed 's/-.*$//')
-MAJOR_VER=$(echo "$BASE_KVER" | cut -d. -f1)
+# ── Step 2: Download pre-configured kernel source ───────────────────────
+#
+# ich777/unraid_kernel publishes kernel source tarballs with the correct
+# .config already applied for each Unraid kernel version. This is far more
+# reliable than extracting the config from bzroot (which Unraid doesn't
+# include) or using defconfig (which produces an ABI-incompatible module).
 
-# Extract kernel config from bzroot (initramfs)
-# Unraid bzroot is a concatenated cpio archive (microroot + main root)
-echo "Extracting kernel config from bzroot..."
-mkdir -p "$WORK_DIR/initramfs"
-cd "$WORK_DIR/initramfs"
+KERNEL_TAR="$CACHE_DIR/linux-${KVER}.tar.xz"
+ICH777_URL="https://github.com/ich777/unraid_kernel/releases/download/${KVER}/linux-${KVER}.tar.xz"
 
-# Try different decompression methods for the bzroot
-if file "$WORK_DIR/bzroot" | grep -q "gzip"; then
-    zcat "$WORK_DIR/bzroot" | cpio -id 2>/dev/null || true
-elif file "$WORK_DIR/bzroot" | grep -q "XZ"; then
-    xzcat "$WORK_DIR/bzroot" | cpio -id 2>/dev/null || true
-elif file "$WORK_DIR/bzroot" | grep -q "cpio"; then
-    cpio -id < "$WORK_DIR/bzroot" 2>/dev/null || true
-else
-    # Try all methods
-    (zcat "$WORK_DIR/bzroot" 2>/dev/null || \
-     xzcat "$WORK_DIR/bzroot" 2>/dev/null || \
-     cat "$WORK_DIR/bzroot") | cpio -id 2>/dev/null || true
-fi
-
-# Look for kernel config in various locations
-KCONFIG=""
-for candidate in \
-    "$WORK_DIR/initramfs/boot/config-${KVER}" \
-    "$WORK_DIR/initramfs/etc/kernel/config-${KVER}" \
-    "${MODULES_BASE}/${KVER}/build/.config" \
-    "${MODULES_BASE}/${KVER}/config"; do
-    if [ -f "$candidate" ]; then
-        KCONFIG="$candidate"
-        echo "Found kernel config: $candidate"
-        break
-    fi
-done
-
-# If no config found, try extracting from /proc/config.gz if present
-if [ -z "$KCONFIG" ] && [ -f "$WORK_DIR/initramfs/proc/config.gz" ]; then
-    zcat "$WORK_DIR/initramfs/proc/config.gz" > "$WORK_DIR/kernel.config"
-    KCONFIG="$WORK_DIR/kernel.config"
-    echo "Found kernel config: proc/config.gz"
-fi
-
-# Download kernel source
-KERNEL_TAR="$CACHE_DIR/linux-${BASE_KVER}.tar.xz"
 if [ ! -f "$KERNEL_TAR" ]; then
-    echo "Downloading kernel source ${BASE_KVER}..."
-    wget -q --show-progress -O "$KERNEL_TAR" \
-        "https://cdn.kernel.org/pub/linux/kernel/v${MAJOR_VER}.x/linux-${BASE_KVER}.tar.xz"
+    echo "Downloading pre-configured kernel source for ${KVER}..."
+    wget -q --show-progress -O "$KERNEL_TAR" "$ICH777_URL" || {
+        echo ""
+        echo "WARNING: Could not download pre-configured kernel source from:"
+        echo "  $ICH777_URL"
+        echo ""
+        echo "This kernel version may not be available from ich777/unraid_kernel."
+        echo "Falling back to kernel.org source with defconfig (module may not load)."
+        echo ""
+        rm -f "$KERNEL_TAR"
+        KERNEL_TAR=""
+    }
 fi
 
-echo "Extracting kernel source..."
-cd "$WORK_DIR"
-tar xf "$KERNEL_TAR"
-KSRC="$WORK_DIR/linux-${BASE_KVER}"
+if [ -n "$KERNEL_TAR" ] && [ -f "$KERNEL_TAR" ]; then
+    # Use ich777's pre-configured kernel source
+    # The tarball extracts to "." (no subdirectory), so create the target dir first
+    KSRC="$WORK_DIR/linux-${KVER}"
+    mkdir -p "$KSRC"
+    echo "Extracting pre-configured kernel source..."
+    tar xf "$KERNEL_TAR" -C "$KSRC"
 
-# Apply kernel config
-if [ -n "$KCONFIG" ]; then
-    echo "Applying Unraid kernel config..."
-    cp "$KCONFIG" "$KSRC/.config"
+    if [ ! -f "$KSRC/.config" ]; then
+        echo "ERROR: Pre-configured kernel source has no .config — archive may be corrupt"
+        exit 1
+    fi
+    echo "Using Unraid kernel config from pre-configured source"
 else
-    echo "WARNING: No kernel config found, using defconfig + Unraid local version"
+    # Fallback: download from kernel.org + defconfig
+    BASE_KVER=$(echo "$KVER" | sed 's/-.*$//')
+    MAJOR_VER=$(echo "$BASE_KVER" | cut -d. -f1)
+
+    KERNEL_TAR="$CACHE_DIR/linux-${BASE_KVER}.tar.xz"
+    if [ ! -f "$KERNEL_TAR" ]; then
+        echo "Downloading kernel source ${BASE_KVER} from kernel.org..."
+        wget -q --show-progress -O "$KERNEL_TAR" \
+            "https://cdn.kernel.org/pub/linux/kernel/v${MAJOR_VER}.x/linux-${BASE_KVER}.tar.xz"
+    fi
+
+    echo "Extracting kernel source..."
+    cd "$WORK_DIR"
+    tar xf "$KERNEL_TAR"
+    KSRC="$WORK_DIR/linux-${BASE_KVER}"
+
+    echo "WARNING: Using defconfig — kernel module may not load on Unraid"
     cd "$KSRC" && make defconfig
+    sed -i "s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"-Unraid\"/" .config 2>/dev/null || \
+        echo 'CONFIG_LOCALVERSION="-Unraid"' >> .config
 fi
 
-# Set the local version to match Unraid
+# ── Step 3: Prepare kernel headers for out-of-tree module build ─────────
+
 cd "$KSRC"
-sed -i "s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"-Unraid\"/" .config 2>/dev/null || \
-    echo 'CONFIG_LOCALVERSION="-Unraid"' >> .config
 
 # Disable module signing if not available (common in cross-compile)
 scripts/config --disable CONFIG_MODULE_SIG_ALL 2>/dev/null || true
 scripts/config --set-str CONFIG_MODULE_SIG_KEY "" 2>/dev/null || true
 
-# Prepare kernel for out-of-tree module build
 echo "Preparing kernel headers..."
 make olddefconfig
 make modules_prepare
