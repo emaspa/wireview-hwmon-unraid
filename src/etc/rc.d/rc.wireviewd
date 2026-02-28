@@ -28,14 +28,14 @@ start() {
     fi
   fi
 
-  # Start daemon in background
-  $DAEMON &
+  # Start daemon in background (fully detached so plugin installer doesn't hang)
+  nohup $DAEMON </dev/null >/dev/null 2>&1 &
   echo $! > "$PIDFILE"
   echo "wireviewd started (PID $(cat "$PIDFILE"))"
 
   # Start fault monitor in background
   if [ -x "$FAULT_MONITOR" ]; then
-    $FAULT_MONITOR &
+    nohup $FAULT_MONITOR </dev/null >/dev/null 2>&1 &
     echo $! > "$FAULT_PIDFILE"
   fi
 }
