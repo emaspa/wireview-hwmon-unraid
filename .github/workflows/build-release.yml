@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        unraid_version: ${{ fromJSON(inputs.unraid_versions || '["7.0.0","7.1.0","7.2.0","7.2.3","7.2.4"]') }}
+        unraid_version: ${{ fromJSON(inputs.unraid_versions || '["7.2.3","7.2.4"]') }}
       fail-fast: false
 
     steps:
