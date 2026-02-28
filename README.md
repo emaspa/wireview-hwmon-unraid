@@ -8,7 +8,7 @@ Based on the [wireview-hwmon](https://github.com/emaspa/wireview-hwmon) project.
 
 ## Requirements
 
-- Unraid 7.0.0 or later
+- Unraid 7.2.3 or later
 - Thermal Grizzly WireView Pro II connected via USB to the Unraid host (not passed through to a VM)
 
 ## Installation
@@ -19,11 +19,13 @@ Search for **WireView** in the Unraid Community Applications plugin store.
 
 ### Manual install
 
-1. Download `wireview-hwmon.plg` from the [latest release](https://github.com/emaspa/wireview-hwmon-unraid/releases/latest)
-2. Copy it to your Unraid server (e.g., via SMB share to `/boot/config/plugins/`)
-3. In the Unraid web UI, go to **Plugins > Install Plugin**
-4. Paste the URL to the `.plg` file or browse to the local copy
-5. Click **Install**
+In the Unraid web UI, go to **Plugins > Install Plugin** and paste:
+
+```
+https://raw.githubusercontent.com/emaspa/wireview-hwmon-unraid/main/wireview-hwmon.plg
+```
+
+The plugin will automatically download the correct package for your kernel version.
 
 ## What's included
 
@@ -97,24 +99,23 @@ wireviewctl screen resume
 
 ## Supported Unraid versions
 
-Pre-built packages are provided for each Unraid 7.x kernel version. Check the [releases page](https://github.com/emaspa/wireview-hwmon-unraid/releases) for available packages.
+Pre-built packages are available for Unraid 7.2.3 and 7.2.4. The plugin automatically downloads the package matching your running kernel.
 
-The plugin automatically downloads the package matching your running kernel.
+Check the [releases page](https://github.com/emaspa/wireview-hwmon-unraid/releases) for all available packages.
 
 ## Building from source
 
 The build system uses Docker to cross-compile the kernel module against Unraid kernel headers.
 
 ```bash
-# Build for a specific Unraid version
 mkdir -p output cache
-docker build -t wireview-builder --build-arg UNRAID_VERSION=7.2.3 build/
+docker build -t wireview-builder --build-arg UNRAID_VERSION=7.2.4 build/
 docker run --rm \
   -v "$(pwd):/src:ro" \
   -v "$(pwd)/output:/output" \
   -v "$(pwd)/cache:/cache" \
-  -e UNRAID_VERSION=7.2.3 \
-  -e PLUGIN_VERSION=1.0.0 \
+  -e UNRAID_VERSION=7.2.4 \
+  -e PLUGIN_VERSION=0.4 \
   wireview-builder
 ```
 
@@ -125,7 +126,7 @@ The resulting `.txz` package will be in `output/`.
 **Plugin installs but no sensor data appears**
 - Ensure the WireView Pro II is connected directly to the Unraid host via USB, not passed through to a VM
 - Check `lsusb` for vendor `0483` product `5740`
-- Check daemon logs: `cat /var/log/syslog | grep wireviewd`
+- Check if the daemon is running: `/etc/rc.d/rc.wireviewd status`
 
 **"Failed to download package for kernel X.Y.Z-Unraid"**
 - Your Unraid kernel version may not have a pre-built package yet
