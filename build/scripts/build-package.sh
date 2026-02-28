@@ -74,6 +74,7 @@ mkdir -p "$PKG_DIR"
 cp -a "$SRC_DIR/src/"* "$PKG_DIR/"
 
 # Place built binaries
+mkdir -p "$PKG_DIR/usr/local/bin"
 install -m 755 /build/wireviewd "$PKG_DIR/usr/local/bin/wireviewd"
 install -m 755 /build/wireviewctl "$PKG_DIR/usr/local/bin/wireviewctl"
 

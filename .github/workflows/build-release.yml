@@ -10,7 +10,7 @@ on:
       unraid_versions:
         description: 'JSON array of Unraid versions to build for'
         required: false
-        default: '["7.0.0","7.1.0","7.2.0","7.2.3","7.2.4"]'
+        default: '["7.2.3","7.2.4"]'
 
 permissions:
   contents: write
