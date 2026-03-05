@@ -5,7 +5,7 @@
   <!ENTITY version   "0.4">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
-  <!ENTITY support   "&repo;/issues">
+  <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
   <!ENTITY launch    "Utilities/WireviewHwmon">
 ]>
 
