@@ -11,7 +11,7 @@
 
 <PLUGIN name="&name;" author="&author;" version="&version;"
   pluginURL="&pluginURL;" support="&support;" launch="&launch;"
-  icon="bolt" min="7.0.0">
+  icon="bolt" min="7.2.0">
 
   <CHANGES>
 ## &version;
