@@ -94,12 +94,24 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
     <h3>Display</h3>
     <table class="wireview-info-table">
       <tr><td>Backlight (%):</td><td><input type="number" id="cfg-backlight" min="0" max="100" size="5"></td></tr>
-      <tr><td>Theme:</td><td><select id="cfg-theme"></select></td></tr>
+      <tr id="cfg-theme-row"><td>Theme:</td><td><select id="cfg-theme"></select></td></tr>
+      <tr id="cfg-default-screen-row" style="display:none;"><td>Default Screen:</td><td><select id="cfg-default-screen"></select></td></tr>
       <tr><td>Rotation:</td><td><select id="cfg-display-rotation"></select></td></tr>
+      <tr id="cfg-inversion-row" style="display:none;"><td>Display Inversion:</td><td><input type="checkbox" id="cfg-display-inversion"></td></tr>
       <tr><td>Timeout Mode:</td><td><select id="cfg-timeout-mode"></select></td></tr>
       <tr><td>Cycle Time (s):</td><td><input type="number" id="cfg-cycle-time" min="0" max="255" size="5"></td></tr>
       <tr><td>Timeout (s):</td><td><input type="number" id="cfg-timeout" min="0" max="255" size="5"></td></tr>
     </table>
+
+    <div id="wv-colors-section" style="display:none;">
+      <h4>Colors</h4>
+      <table class="wireview-info-table">
+        <tr><td>Primary:</td><td><input type="color" id="cfg-primary-color"></td></tr>
+        <tr><td>Secondary:</td><td><input type="color" id="cfg-secondary-color"></td></tr>
+        <tr><td>Highlight:</td><td><input type="color" id="cfg-highlight-color"></td></tr>
+        <tr><td>Background:</td><td><input type="color" id="cfg-background-color"></td></tr>
+      </table>
+    </div>
 
     <h4>Cycle Screens</h4>
     <div id="wv-cycle-screens"></div>
@@ -210,8 +222,31 @@ function wireviewLoadConfig() {
 
     // Display
     $('#cfg-backlight').val(cfg.backlight_duty);
-    populateSelect('#cfg-theme', enums.theme, cfg.theme);
+    if (cfg.theme !== null) {
+      populateSelect('#cfg-theme', enums.theme, cfg.theme);
+      $('#cfg-theme-row').show();
+    } else {
+      $('#cfg-theme-row').hide();
+    }
+    if (cfg.default_screen !== null) {
+      populateSelect('#cfg-default-screen', enums.default_screen, cfg.default_screen);
+      $('#cfg-default-screen-row').show();
+    } else {
+      $('#cfg-default-screen-row').hide();
+    }
     populateSelect('#cfg-display-rotation', enums.display_rotation, cfg.display_rotation);
+    if (data.config_version >= 2) {
+      $('#cfg-display-inversion').prop('checked', cfg.display_inversion == 1);
+      $('#cfg-inversion-row').show();
+      $('#cfg-primary-color').val(cfg.primary_color);
+      $('#cfg-secondary-color').val(cfg.secondary_color);
+      $('#cfg-highlight-color').val(cfg.highlight_color);
+      $('#cfg-background-color').val(cfg.background_color);
+      $('#wv-colors-section').show();
+    } else {
+      $('#cfg-inversion-row').hide();
+      $('#wv-colors-section').hide();
+    }
     populateSelect('#cfg-timeout-mode', enums.timeout_mode, cfg.timeout_mode);
     $('#cfg-cycle-time').val(cfg.cycle_time);
     $('#cfg-timeout').val(cfg.timeout);
@@ -283,7 +318,6 @@ function wireviewSaveConfig() {
     logging_interval: parseInt($('#cfg-logging-interval').val()),
     current_scale: parseInt($('#cfg-current-scale').val()),
     power_scale: parseInt($('#cfg-power-scale').val()),
-    theme: parseInt($('#cfg-theme').val()),
     display_rotation: parseInt($('#cfg-display-rotation').val()),
     timeout_mode: parseInt($('#cfg-timeout-mode').val()),
     cycle_screens: collectBitmask('cycle-screen'),
@@ -291,8 +325,21 @@ function wireviewSaveConfig() {
     timeout: parseInt($('#cfg-timeout').val())
   };
 
+  if (wvConfigData.config.theme !== null) {
+    cfg.theme = parseInt($('#cfg-theme').val());
+  }
   if (wvConfigData.config.average !== null) {
     cfg.average = parseInt($('#cfg-average').val());
+  }
+  if (wvConfigData.config.default_screen !== null) {
+    cfg.default_screen = parseInt($('#cfg-default-screen').val());
+  }
+  if (wvConfigData.config_version >= 2) {
+    cfg.primary_color = $('#cfg-primary-color').val();
+    cfg.secondary_color = $('#cfg-secondary-color').val();
+    cfg.highlight_color = $('#cfg-highlight-color').val();
+    cfg.background_color = $('#cfg-background-color').val();
+    cfg.display_inversion = $('#cfg-display-inversion').is(':checked') ? 1 : 0;
   }
 
   var payload = {

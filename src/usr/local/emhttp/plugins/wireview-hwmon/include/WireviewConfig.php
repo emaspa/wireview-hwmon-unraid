@@ -60,6 +60,25 @@ define('OFF_V1_CYCLE_SCREENS',       70);
 define('OFF_V1_CYCLE_TIME',          71);
 define('OFF_V1_TIMEOUT',             72);
 
+// V2-specific offsets (config_version=2, UiConfigStructV2 with colors)
+define('OFF_V2_AVERAGE',             64);  // uint8
+// 3 bytes padding at 65-67
+define('OFF_V2_DEFAULT_SCREEN',      68);  // uint8
+define('OFF_V2_CURRENT_SCALE',       69);  // uint8
+define('OFF_V2_POWER_SCALE',         70);  // uint8
+define('OFF_V2_DISPLAY_ROTATION',    71);  // uint8
+define('OFF_V2_TIMEOUT_MODE',        72);  // uint8
+define('OFF_V2_CYCLE_SCREENS',       73);  // uint8
+define('OFF_V2_CYCLE_TIME',          74);  // uint8
+define('OFF_V2_TIMEOUT',             75);  // uint8
+define('OFF_V2_PRIMARY_COLOR',       76);  // uint32 LE (ARGB)
+define('OFF_V2_SECONDARY_COLOR',     80);  // uint32 LE (ARGB)
+define('OFF_V2_HIGHLIGHT_COLOR',     84);  // uint32 LE (ARGB)
+define('OFF_V2_BACKGROUND_COLOR',    88);  // uint32 LE (ARGB)
+define('OFF_V2_BACKGROUND_BITMAP_ID',92);  // uint8
+define('OFF_V2_FAN_BITMAP_ID',       93);  // uint8
+define('OFF_V2_DISPLAY_INVERSION',   94);  // uint8
+
 // Enum labels
 $ENUMS = [
     'fan_mode'       => ['Curve', 'Fixed'],
@@ -70,6 +89,7 @@ $ENUMS = [
     'display_rotation' => ['0°', '180°'],
     'timeout_mode'   => ['Static', 'Cycle', 'Sleep'],
     'average'        => ['22ms', '44ms', '89ms', '177ms', '354ms', '709ms', '1417ms'],
+    'default_screen' => ['Main', 'Simple', 'Current', 'Temp', 'Status'],
 ];
 
 // Fault type bit positions
@@ -147,12 +167,10 @@ function handleRead() {
     }
 
     $nbytes = count($bytes);
-    // Sanity check size
-    if ($configVersion == 0 && $nbytes != 130) {
-        // Try to detect from size
-        if ($nbytes == 131) $configVersion = 1;
-    } elseif ($configVersion == 1 && $nbytes != 131) {
-        if ($nbytes == 130) $configVersion = 0;
+    // Auto-detect config version from size if mismatch
+    $sizeMap = [72 => 0, 74 => 1, 96 => 2];
+    if (isset($sizeMap[$nbytes]) && $sizeMap[$nbytes] != $configVersion) {
+        $configVersion = $sizeMap[$nbytes];
     }
 
     $result = ['config_version' => $configVersion, 'raw_hex' => $hex, 'config' => []];
@@ -189,8 +207,25 @@ function handleRead() {
     $cfg['logging_interval']    = u8($bytes, OFF_LOGGING_INTERVAL);
 
     // Version-dependent UI fields
-    if ($configVersion == 1) {
+    if ($configVersion == 2) {
+        $cfg['average']          = u8($bytes, OFF_V2_AVERAGE);
+        $cfg['default_screen']   = u8($bytes, OFF_V2_DEFAULT_SCREEN);
+        $cfg['current_scale']    = u8($bytes, OFF_V2_CURRENT_SCALE);
+        $cfg['power_scale']      = u8($bytes, OFF_V2_POWER_SCALE);
+        $cfg['theme']            = null; // replaced by individual colors in V2
+        $cfg['display_rotation'] = u8($bytes, OFF_V2_DISPLAY_ROTATION);
+        $cfg['timeout_mode']     = u8($bytes, OFF_V2_TIMEOUT_MODE);
+        $cfg['cycle_screens']    = u8($bytes, OFF_V2_CYCLE_SCREENS);
+        $cfg['cycle_time']       = u8($bytes, OFF_V2_CYCLE_TIME);
+        $cfg['timeout']          = u8($bytes, OFF_V2_TIMEOUT);
+        $cfg['primary_color']    = argb2hex(u32le($bytes, OFF_V2_PRIMARY_COLOR));
+        $cfg['secondary_color']  = argb2hex(u32le($bytes, OFF_V2_SECONDARY_COLOR));
+        $cfg['highlight_color']  = argb2hex(u32le($bytes, OFF_V2_HIGHLIGHT_COLOR));
+        $cfg['background_color'] = argb2hex(u32le($bytes, OFF_V2_BACKGROUND_COLOR));
+        $cfg['display_inversion']= u8($bytes, OFF_V2_DISPLAY_INVERSION);
+    } elseif ($configVersion == 1) {
         $cfg['average']          = u8($bytes, OFF_V1_AVERAGE);
+        $cfg['default_screen']   = null;
         $cfg['current_scale']    = u8($bytes, OFF_V1_CURRENT_SCALE);
         $cfg['power_scale']      = u8($bytes, OFF_V1_POWER_SCALE);
         $cfg['theme']            = u8($bytes, OFF_V1_THEME);
@@ -201,6 +236,7 @@ function handleRead() {
         $cfg['timeout']          = u8($bytes, OFF_V1_TIMEOUT);
     } else {
         $cfg['average']          = null; // not available in V0
+        $cfg['default_screen']   = null;
         $cfg['current_scale']    = u8($bytes, OFF_V0_CURRENT_SCALE);
         $cfg['power_scale']      = u8($bytes, OFF_V0_POWER_SCALE);
         $cfg['theme']            = u8($bytes, OFF_V0_THEME);
@@ -261,7 +297,22 @@ function handleWrite(?array $input) {
     if (isset($cfg['logging_interval']))    writeU8($bytes, OFF_LOGGING_INTERVAL, $cfg['logging_interval']);
 
     // Version-dependent UI fields
-    if ($configVersion == 1) {
+    if ($configVersion == 2) {
+        if (isset($cfg['average']))          writeU8($bytes, OFF_V2_AVERAGE, $cfg['average']);
+        if (isset($cfg['default_screen']))   writeU8($bytes, OFF_V2_DEFAULT_SCREEN, $cfg['default_screen']);
+        if (isset($cfg['current_scale']))    writeU8($bytes, OFF_V2_CURRENT_SCALE, $cfg['current_scale']);
+        if (isset($cfg['power_scale']))      writeU8($bytes, OFF_V2_POWER_SCALE, $cfg['power_scale']);
+        if (isset($cfg['display_rotation'])) writeU8($bytes, OFF_V2_DISPLAY_ROTATION, $cfg['display_rotation']);
+        if (isset($cfg['timeout_mode']))     writeU8($bytes, OFF_V2_TIMEOUT_MODE, $cfg['timeout_mode']);
+        if (isset($cfg['cycle_screens']))    writeU8($bytes, OFF_V2_CYCLE_SCREENS, $cfg['cycle_screens']);
+        if (isset($cfg['cycle_time']))       writeU8($bytes, OFF_V2_CYCLE_TIME, $cfg['cycle_time']);
+        if (isset($cfg['timeout']))          writeU8($bytes, OFF_V2_TIMEOUT, $cfg['timeout']);
+        if (isset($cfg['primary_color']))    writeU32le($bytes, OFF_V2_PRIMARY_COLOR, hex2argb($cfg['primary_color']));
+        if (isset($cfg['secondary_color']))  writeU32le($bytes, OFF_V2_SECONDARY_COLOR, hex2argb($cfg['secondary_color']));
+        if (isset($cfg['highlight_color']))  writeU32le($bytes, OFF_V2_HIGHLIGHT_COLOR, hex2argb($cfg['highlight_color']));
+        if (isset($cfg['background_color'])) writeU32le($bytes, OFF_V2_BACKGROUND_COLOR, hex2argb($cfg['background_color']));
+        if (isset($cfg['display_inversion']))writeU8($bytes, OFF_V2_DISPLAY_INVERSION, $cfg['display_inversion']);
+    } elseif ($configVersion == 1) {
         if (isset($cfg['average']))          writeU8($bytes, OFF_V1_AVERAGE, $cfg['average']);
         if (isset($cfg['current_scale']))    writeU8($bytes, OFF_V1_CURRENT_SCALE, $cfg['current_scale']);
         if (isset($cfg['power_scale']))      writeU8($bytes, OFF_V1_POWER_SCALE, $cfg['power_scale']);
@@ -328,6 +379,11 @@ function u16le(array $bytes, int $off): int {
     return (($bytes[$off] ?? 0) | (($bytes[$off + 1] ?? 0) << 8));
 }
 
+function u32le(array $bytes, int $off): int {
+    return (($bytes[$off] ?? 0) | (($bytes[$off + 1] ?? 0) << 8)
+          | (($bytes[$off + 2] ?? 0) << 16) | (($bytes[$off + 3] ?? 0) << 24));
+}
+
 function s16le(array $bytes, int $off): int {
     $v = u16le($bytes, $off);
     return ($v >= 0x8000) ? $v - 0x10000 : $v;
@@ -352,6 +408,13 @@ function writeU16le(array &$bytes, int $off, int $val): void {
     $bytes[$off + 1] = ($val >> 8) & 0xFF;
 }
 
+function writeU32le(array &$bytes, int $off, int $val): void {
+    $bytes[$off]     = $val & 0xFF;
+    $bytes[$off + 1] = ($val >> 8) & 0xFF;
+    $bytes[$off + 2] = ($val >> 16) & 0xFF;
+    $bytes[$off + 3] = ($val >> 24) & 0xFF;
+}
+
 function writeS16le(array &$bytes, int $off, int $val): void {
     if ($val < 0) $val += 0x10000;
     writeU16le($bytes, $off, $val);
@@ -361,4 +424,18 @@ function writeString(array &$bytes, int $off, int $maxLen, string $val): void {
     for ($i = 0; $i < $maxLen; $i++) {
         $bytes[$off + $i] = ($i < strlen($val)) ? ord($val[$i]) : 0;
     }
+}
+
+// Convert ARGB uint32 to #RRGGBB hex string (alpha is always 0xFF)
+function argb2hex(int $argb): string {
+    return sprintf('#%02x%02x%02x', ($argb >> 16) & 0xFF, ($argb >> 8) & 0xFF, $argb & 0xFF);
+}
+
+// Convert #RRGGBB hex string to ARGB uint32 (alpha = 0xFF)
+function hex2argb(string $hex): int {
+    $hex = ltrim($hex, '#');
+    $r = hexdec(substr($hex, 0, 2));
+    $g = hexdec(substr($hex, 2, 2));
+    $b = hexdec(substr($hex, 4, 2));
+    return (0xFF << 24) | ($r << 16) | ($g << 8) | $b;
 }
