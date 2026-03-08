@@ -15,7 +15,7 @@
 
   <CHANGES>
 ## 0.5
-- Add support for firmware 1.0.6 config version 2
+- Add support for firmware v4 config version 2
 - Color pickers for primary, secondary, highlight, and background colors
 - Default screen and display inversion settings
 - Fix config size auto-detection
