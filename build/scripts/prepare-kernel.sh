@@ -102,8 +102,19 @@ for modpath in "$WORK_DIR/modules/lib/modules" "$WORK_DIR/modules/modules"; do
         fi
     fi
 done
+
+# Fallback: extract version from bzimage if bzmodules layout changed
 if [ -z "$KVER" ]; then
-    echo "ERROR: Could not determine kernel version from bzmodules"
+    echo "Could not find kernel version in bzmodules, trying bzimage..."
+    unzip -o -j "$UNRAID_ZIP" "*/bzimage" 2>/dev/null || \
+    unzip -o -j "$UNRAID_ZIP" "bzimage" 2>/dev/null || true
+    if [ -f "$WORK_DIR/bzimage" ]; then
+        KVER=$(file "$WORK_DIR/bzimage" | grep -oP 'version \K[^ ]+')
+    fi
+fi
+
+if [ -z "$KVER" ]; then
+    echo "ERROR: Could not determine kernel version from bzmodules or bzimage"
     exit 1
 fi
 echo "Kernel version: $KVER"
