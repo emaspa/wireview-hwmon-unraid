@@ -16,7 +16,8 @@
   <CHANGES>
 ## 0.6
 - Add support for Unraid 7.3.1 (kernel 6.18.33-Unraid)
-- Rebuild packages for kernels 6.12.54-Unraid (7.2.x) and 6.18.18-Unraid (7.3.0)
+- Add support for current Unraid 7.3.0 (kernel 6.18.29-Unraid)
+- Rebuild package for Unraid 7.2.x (kernel 6.12.54-Unraid)
 
 ## 0.5
 - Add support for firmware v4 config version 2
