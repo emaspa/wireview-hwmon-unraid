@@ -8,3 +8,6 @@ cache/
 modules.order
 Module.symvers
 .tmp_versions/
+
+# Graphify knowledge-graph output (generated)
+graphify-out/
