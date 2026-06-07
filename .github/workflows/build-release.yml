@@ -10,7 +10,7 @@ on:
       unraid_versions:
         description: 'JSON array of Unraid versions to build for'
         required: false
-        default: '["7.2.3","7.2.4"]'
+        default: '["7.2.3","7.3.0","7.3.1"]'
 
 permissions:
   contents: write
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        unraid_version: ${{ fromJSON(inputs.unraid_versions || '["7.2.3","7.2.4"]') }}
+        unraid_version: ${{ fromJSON(inputs.unraid_versions || '["7.2.3","7.3.0","7.3.1"]') }}
       fail-fast: false
 
     steps:
