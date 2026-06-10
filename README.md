@@ -41,11 +41,11 @@ The plugin will automatically download the correct package for your kernel versi
 
 The plugin adds a movable tile to the Unraid dashboard showing live sensor readings organized into sections:
 
-- **Voltage** — per-pin and average
-- **Current** — per-pin and total
-- **Power** — per-pin and total
-- **Temperature** — onboard and external probes
-- **Status** — fan duty, fault status/log, PSU capability
+- **Voltage** - per-pin and average
+- **Current** - per-pin and total
+- **Power** - per-pin and total
+- **Temperature** - onboard and external probes
+- **Status** - fan duty, fault status/log, PSU capability
 
 Data auto-refreshes every 2 seconds with color-coded status orbs (green/orange/red).
 
@@ -56,15 +56,15 @@ Under **Settings > Utilities > WireView Pro II**, the plugin provides:
 - Daemon start/stop/restart controls
 - Device info (firmware version, UID, build string)
 - Full device configuration matching the WireView II Pro GUI app:
-  - **General** — friendly name
-  - **Fan Control** — mode (curve/fixed), temperature source, duty min/max, temp min/max
-  - **Protection Thresholds** — OCP, wire OCP, OPP, temperature fault, current imbalance
-  - **Fault Response** — per-fault-type enable/disable for display, buzzer, soft power, hard power
-  - **Display** — backlight, theme, rotation, timeout mode, cycle screens
-  - **Measurement** — current scale, power scale, averaging period, logging interval
+  - **General** - friendly name
+  - **Fan Control** - mode (curve/fixed), temperature source, duty min/max, temp min/max
+  - **Protection Thresholds** - OCP, wire OCP, OPP, temperature fault, current imbalance
+  - **Fault Response** - per-fault-type enable/disable for display, buzzer, soft power, hard power
+  - **Display** - backlight, theme, rotation, timeout mode, cycle screens
+  - **Measurement** - current scale, power scale, averaging period, logging interval
 - NVM controls (save/load/factory reset)
 - Clear faults
-- **Network (LAN)** — publish this server's WireView on the LAN and (with a secret) accept authenticated remote writes/config. See below.
+- **Network (LAN)** - publish this server's WireView on the LAN and (with a secret) accept authenticated remote writes/config. See below.
 
 ## Fault Alerts
 
@@ -77,22 +77,22 @@ A background monitor polls the device every 30 seconds and sends Unraid notifica
 
 The bundled daemon can publish this server's WireView on the LAN and accept
 authenticated commands, so the [desktop app](https://github.com/emaspa/wireview-linux)
-or another server can read it — and, with a secret, configure it remotely. It is
+or another server can read it - and, with a secret, configure it remotely. It is
 **off by default**.
 
 Configure it under **Settings > WireView Pro II > Network (LAN)**:
 
-- **Enable LAN publishing** — opens the listener so other instances can read this
+- **Enable LAN publishing** - opens the listener so other instances can read this
   server's device via `GET /sensors`.
-- **Publish port** — listener port (default `9876`).
-- **Network secret** — shared passphrase enabling HMAC-authenticated remote
+- **Publish port** - listener port (default `9876`).
+- **Network secret** - shared passphrase enabling HMAC-authenticated remote
   writes/config (empty = reads only; the secret never crosses the wire and
   replays are rejected).
 - **Audit log retention** (days) and **remote hosts** for `wireviewctl top`.
 
 Settings are stored on the flash drive (`/boot/config/plugins/wireview-hwmon/`)
 and re-applied to `/etc/wireview/config` on every boot, so they survive reboots
-even though `/etc` is tmpfs on Unraid. No TLS — this targets a trusted LAN. See
+even though `/etc` is tmpfs on Unraid. No TLS - this targets a trusted LAN. See
 [wireview-hwmon](https://github.com/emaspa/wireview-hwmon#lan-monitoring-remote-access)
 for the full protocol and security details.
 
