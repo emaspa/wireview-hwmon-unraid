@@ -10,6 +10,32 @@ PIDFILE="/var/run/wireviewd.pid"
 MODULE="wireview_hwmon"
 FAULT_MONITOR="/usr/local/emhttp/plugins/wireview-hwmon/scripts/wireview-fault-monitor.sh"
 FAULT_PIDFILE="/var/run/wireview-fault-monitor.pid"
+NETWORK_CFG="/boot/config/plugins/wireview-hwmon/network.cfg"
+
+# Regenerate /etc/wireview/{config,hosts} from the flash-persisted LAN settings so
+# they survive reboots (/etc is tmpfs on Unraid). No flash file => LAN stays off.
+apply_network_config() {
+  [ -f "$NETWORK_CFG" ] || return 0
+  local remote secret logdays hosts
+  remote=$(sed -n 's/^remote_enabled=//p' "$NETWORK_CFG")
+  secret=$(sed -n 's/^secret=//p' "$NETWORK_CFG")
+  logdays=$(sed -n 's/^log_days=//p' "$NETWORK_CFG")
+  hosts=$(sed -n 's/^hosts=//p' "$NETWORK_CFG")
+
+  mkdir -p /etc/wireview
+  {
+    echo "remote_enabled=${remote:-0}"
+    [ -n "$secret" ] && echo "secret=${secret}"
+    echo "log_days=${logdays:-14}"
+  } > /etc/wireview/config
+  chmod 600 /etc/wireview/config
+
+  if [ -n "$hosts" ]; then
+    echo "$hosts" | tr ', ' '\n' | sed '/^$/d' > /etc/wireview/hosts
+  else
+    rm -f /etc/wireview/hosts
+  fi
+}
 
 start() {
   if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
@@ -27,6 +53,9 @@ start() {
       return 1
     fi
   fi
+
+  # Apply persisted LAN settings (writes /etc/wireview/config) before launch.
+  apply_network_config
 
   # Start daemon in background (setsid creates new session so plugin installer doesn't hang)
   setsid $DAEMON </dev/null >/dev/null 2>&1 &

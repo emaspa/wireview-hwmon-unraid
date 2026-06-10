@@ -56,9 +56,10 @@ echo ""
 echo "=== Building userspace tools ==="
 
 # Step 3: Build userspace tools (statically linked for portability across Unraid versions)
+# wireviewd now links the vendored SHA-256/HMAC (LAN write-command auth).
 gcc -Wall -Wextra -Wno-format-truncation -O2 -static \
-    -o /build/wireviewd "$UPSTREAM/wireviewd.c"
-gcc -Wall -Wextra -O2 -static \
+    -o /build/wireviewd "$UPSTREAM/wireviewd.c" "$UPSTREAM/sha256.c"
+gcc -Wall -Wextra -Wno-format-truncation -O2 -static \
     -o /build/wireviewctl "$UPSTREAM/wireviewctl.c"
 
 echo "Built: wireviewd, wireviewctl"

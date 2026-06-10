@@ -32,6 +32,22 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
   </div>
 </div>
 
+<div id="wireview-network" class="wireview-section">
+  <h2>Network (LAN Fleet)</h2>
+  <p style="opacity:0.7;font-size:12px;margin:4px 0 10px;">Publish this server's WireView on the LAN so the desktop app and other instances can read it (and, with a secret, configure it remotely). Off by default. Settings are stored on the flash drive and re-applied on boot.</p>
+  <div id="wv-net-error" class="wv-err" style="display:none;"></div>
+  <div id="wv-net-success" class="wv-ok" style="display:none;"></div>
+  <table class="wireview-info-table">
+    <tr><td>Enable LAN publishing:</td><td><input type="checkbox" id="net-enabled"> <span id="net-listening"></span></td></tr>
+    <tr><td>Network secret:</td><td><input type="password" id="net-secret" size="32" placeholder="empty = reads only, no remote writes"></td></tr>
+    <tr><td>Audit log retention (days):</td><td><input type="number" id="net-log-days" min="0" max="3650" size="5"></td></tr>
+    <tr><td>Remote hosts (for top):</td><td><input type="text" id="net-hosts" size="40" placeholder="192.168.1.50, 192.168.1.51"></td></tr>
+  </table>
+  <div style="margin-top:10px;">
+    <button onclick="wireviewSaveNetwork()" class="wv-btn">Save &amp; Apply</button>
+  </div>
+</div>
+
 <div id="wireview-device" class="wireview-section" style="display:none;">
   <h2>Device Info</h2>
   <table class="wireview-info-table">
@@ -410,8 +426,46 @@ function wireviewClearFaults() {
   });
 }
 
+function wireviewLoadNetwork() {
+  $.getJSON('/plugins/<?=$plugin?>/include/WireviewNetwork.php', function(data) {
+    $('#net-enabled').prop('checked', data.remote_enabled == 1);
+    $('#net-secret').val(data.secret || '');
+    $('#net-log-days').val(data.log_days);
+    $('#net-hosts').val(data.hosts || '');
+    $('#net-listening').text(data.listening ? 'listening on :9876' : 'not listening')
+      .removeClass('wv-ok wv-err').addClass(data.listening ? 'wv-ok' : 'wv-err');
+  });
+}
+
+function wireviewSaveNetwork() {
+  var payload = {
+    remote_enabled: $('#net-enabled').is(':checked') ? 1 : 0,
+    secret: $('#net-secret').val(),
+    log_days: parseInt($('#net-log-days').val()) || 0,
+    hosts: $('#net-hosts').val()
+  };
+  $('#wv-net-error').hide();
+  $('#wv-net-success').hide();
+  $.ajax({
+    url: '/plugins/<?=$plugin?>/include/WireviewNetwork.php',
+    type: 'POST', contentType: 'application/json',
+    data: JSON.stringify(payload), dataType: 'json',
+    success: function(data) {
+      if (data.error) {
+        $('#wv-net-error').text(data.error).show();
+      } else {
+        $('#wv-net-success').text(data.message || 'Saved.').show();
+        setTimeout(function() { $('#wv-net-success').fadeOut(); }, 3000);
+        setTimeout(wireviewLoadNetwork, 1500);
+      }
+    },
+    error: function() { $('#wv-net-error').text('Failed to save network settings.').show(); }
+  });
+}
+
 $(function() {
   wireviewRefresh();
+  wireviewLoadNetwork();
   wireviewLoadConfig();
   wireviewTimer = setInterval(wireviewRefresh, 5000);
 });
