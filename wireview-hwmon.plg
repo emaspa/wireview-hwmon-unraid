@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.6">
+  <!ENTITY version   "0.7">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,13 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.7
+- Update to wireview-hwmon 1.4.0 (LAN fleet monitoring)
+- New "Network (LAN Fleet)" settings: publish this server on the LAN
+  (GET /sensors), authenticated remote writes/config via a network secret,
+  configurable port, and audit-log retention - persisted to the flash drive
+- Remote-host list for the wireviewctl top fleet monitor
+
 ## 0.6
 - Add support for Unraid 7.3.1 (kernel 6.18.33-Unraid)
 - Add support for current Unraid 7.3.0 (kernel 6.18.29-Unraid)
