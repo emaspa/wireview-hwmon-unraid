@@ -1,6 +1,6 @@
 <?php
 /*
- * WireviewNetwork.php - LAN fleet network settings for the WireView Pro II daemon.
+ * WireviewNetwork.php - LAN network settings for the WireView Pro II daemon.
  *
  * GET  -> current settings (read from flash) + whether the daemon is listening.
  * POST -> persist settings to /boot/config/plugins/wireview-hwmon/network.cfg, then

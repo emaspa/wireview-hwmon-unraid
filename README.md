@@ -64,6 +64,7 @@ Under **Settings > Utilities > WireView Pro II**, the plugin provides:
   - **Measurement** — current scale, power scale, averaging period, logging interval
 - NVM controls (save/load/factory reset)
 - Clear faults
+- **Network (LAN)** — publish this server's WireView on the LAN and (with a secret) accept authenticated remote writes/config. See below.
 
 ## Fault Alerts
 
@@ -71,6 +72,29 @@ A background monitor polls the device every 30 seconds and sends Unraid notifica
 
 - Fault state transitions (alert when fault detected, normal when cleared)
 - High temperature warnings (above 80°C)
+
+## LAN monitoring
+
+The bundled daemon can publish this server's WireView on the LAN and accept
+authenticated commands, so the [desktop app](https://github.com/emaspa/wireview-linux)
+or another server can read it — and, with a secret, configure it remotely. It is
+**off by default**.
+
+Configure it under **Settings > WireView Pro II > Network (LAN)**:
+
+- **Enable LAN publishing** — opens the listener so other instances can read this
+  server's device via `GET /sensors`.
+- **Publish port** — listener port (default `9876`).
+- **Network secret** — shared passphrase enabling HMAC-authenticated remote
+  writes/config (empty = reads only; the secret never crosses the wire and
+  replays are rejected).
+- **Audit log retention** (days) and **remote hosts** for `wireviewctl top`.
+
+Settings are stored on the flash drive (`/boot/config/plugins/wireview-hwmon/`)
+and re-applied to `/etc/wireview/config` on every boot, so they survive reboots
+even though `/etc` is tmpfs on Unraid. No TLS — this targets a trusted LAN. See
+[wireview-hwmon](https://github.com/emaspa/wireview-hwmon#lan-monitoring-remote-access)
+for the full protocol and security details.
 
 ## CLI usage
 
@@ -95,11 +119,15 @@ wireviewctl screen main
 wireviewctl screen temp
 wireviewctl screen pause
 wireviewctl screen resume
+
+# Live dashboard (local + remote hosts; q to quit)
+wireviewctl top
+wireviewctl top --host 192.168.1.50
 ```
 
 ## Supported Unraid versions
 
-Pre-built packages are available for Unraid 7.2.3 and 7.2.4. The plugin automatically downloads the package matching your running kernel.
+Pre-built packages cover Unraid 7.2.x, 7.3.0, and 7.3.1 (kernels `6.12.54`, `6.18.29`, and `6.18.33-Unraid`). The plugin automatically downloads the package matching your running kernel.
 
 Check the [releases page](https://github.com/emaspa/wireview-hwmon-unraid/releases) for all available packages.
 
@@ -109,13 +137,13 @@ The build system uses Docker to cross-compile the kernel module against Unraid k
 
 ```bash
 mkdir -p output cache
-docker build -t wireview-builder --build-arg UNRAID_VERSION=7.2.4 build/
+docker build -t wireview-builder --build-arg UNRAID_VERSION=7.3.1 build/
 docker run --rm \
   -v "$(pwd):/src:ro" \
   -v "$(pwd)/output:/output" \
   -v "$(pwd)/cache:/cache" \
-  -e UNRAID_VERSION=7.2.4 \
-  -e PLUGIN_VERSION=0.4 \
+  -e UNRAID_VERSION=7.3.1 \
+  -e PLUGIN_VERSION=0.7 \
   wireview-builder
 ```
 

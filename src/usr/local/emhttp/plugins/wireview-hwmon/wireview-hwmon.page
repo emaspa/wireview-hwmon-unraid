@@ -33,7 +33,7 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
 </div>
 
 <div id="wireview-network" class="wireview-section">
-  <h2>Network (LAN Fleet)</h2>
+  <h2>Network (LAN)</h2>
   <p style="opacity:0.7;font-size:12px;margin:4px 0 10px;">Publish this server's WireView on the LAN so the desktop app and other instances can read it (and, with a secret, configure it remotely). Off by default. Settings are stored on the flash drive and re-applied on boot.</p>
   <div id="wv-net-error" class="wv-err" style="display:none;"></div>
   <div id="wv-net-success" class="wv-ok" style="display:none;"></div>
