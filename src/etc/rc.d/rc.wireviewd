@@ -16,8 +16,9 @@ NETWORK_CFG="/boot/config/plugins/wireview-hwmon/network.cfg"
 # they survive reboots (/etc is tmpfs on Unraid). No flash file => LAN stays off.
 apply_network_config() {
   [ -f "$NETWORK_CFG" ] || return 0
-  local remote secret logdays hosts
+  local remote port secret logdays hosts
   remote=$(sed -n 's/^remote_enabled=//p' "$NETWORK_CFG")
+  port=$(sed -n 's/^port=//p' "$NETWORK_CFG")
   secret=$(sed -n 's/^secret=//p' "$NETWORK_CFG")
   logdays=$(sed -n 's/^log_days=//p' "$NETWORK_CFG")
   hosts=$(sed -n 's/^hosts=//p' "$NETWORK_CFG")
@@ -25,6 +26,7 @@ apply_network_config() {
   mkdir -p /etc/wireview
   {
     echo "remote_enabled=${remote:-0}"
+    [ -n "$port" ] && echo "port=$port"
     [ -n "$secret" ] && echo "secret=${secret}"
     echo "log_days=${logdays:-14}"
   } > /etc/wireview/config

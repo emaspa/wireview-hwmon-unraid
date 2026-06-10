@@ -39,6 +39,7 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
   <div id="wv-net-success" class="wv-ok" style="display:none;"></div>
   <table class="wireview-info-table">
     <tr><td>Enable LAN publishing:</td><td><input type="checkbox" id="net-enabled"> <span id="net-listening"></span></td></tr>
+    <tr><td>Publish port:</td><td><input type="number" id="net-port" min="1" max="65535" size="6"></td></tr>
     <tr><td>Network secret:</td><td><input type="password" id="net-secret" size="32" placeholder="empty = reads only, no remote writes"></td></tr>
     <tr><td>Audit log retention (days):</td><td><input type="number" id="net-log-days" min="0" max="3650" size="5"></td></tr>
     <tr><td>Remote hosts (for top):</td><td><input type="text" id="net-hosts" size="40" placeholder="192.168.1.50, 192.168.1.51"></td></tr>
@@ -429,6 +430,7 @@ function wireviewClearFaults() {
 function wireviewLoadNetwork() {
   $.getJSON('/plugins/<?=$plugin?>/include/WireviewNetwork.php', function(data) {
     $('#net-enabled').prop('checked', data.remote_enabled == 1);
+    $('#net-port').val(data.port);
     $('#net-secret').val(data.secret || '');
     $('#net-log-days').val(data.log_days);
     $('#net-hosts').val(data.hosts || '');
@@ -440,6 +442,7 @@ function wireviewLoadNetwork() {
 function wireviewSaveNetwork() {
   var payload = {
     remote_enabled: $('#net-enabled').is(':checked') ? 1 : 0,
+    port: parseInt($('#net-port').val()) || 9876,
     secret: $('#net-secret').val(),
     log_days: parseInt($('#net-log-days').val()) || 0,
     hosts: $('#net-hosts').val()
