@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.7">
+  <!ENTITY version   "0.8">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,11 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.8
+- Fix "Failed to save network settings" under Network (LAN): the save now
+  returns immediately and restarts the daemon in the background, instead of
+  blocking on a full daemon/module restart that timed out the request.
+
 ## 0.7
 - Update to wireview-hwmon 1.4.0 (LAN monitoring)
 - New "Network (LAN)" settings: publish this server on the LAN
