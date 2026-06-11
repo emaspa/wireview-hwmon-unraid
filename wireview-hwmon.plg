@@ -15,8 +15,8 @@
 
   <CHANGES>
 ## 0.13
-- Fix saved Network (LAN) values coming back empty: Unraid's webGui appends
-  "&csrf_token=..." to every AJAX POST body, corrupting the JSON payload, so
+- Fix saved Network (LAN) values coming back empty: the Unraid webGui appends
+  a csrf_token suffix to every AJAX POST body, corrupting the JSON payload, so
   0.12 saved defaults (empty secret/hosts) while reporting success. The
   handlers now strip the appended token before parsing, and reject an
   unparseable body instead of writing defaults. Re-save your settings once
