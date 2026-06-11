@@ -1,0 +1,21 @@
+name: Validate plugin XML
+
+# The .plg is served to every user straight from raw/main - a single invalid
+# character (e.g. a bare & in the CHANGES text) breaks plugin updates for
+# everyone. Validate it on every change.
+on:
+  push:
+    paths: ['wireview-hwmon.plg']
+  pull_request:
+    paths: ['wireview-hwmon.plg']
+
+jobs:
+  xmllint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate wireview-hwmon.plg
+        run: |
+          sudo apt-get install -y --no-install-recommends libxml2-utils >/dev/null
+          xmllint --noout wireview-hwmon.plg
+          echo "plg XML valid"
