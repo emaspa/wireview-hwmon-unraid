@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.11">
+  <!ENTITY version   "0.12">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,13 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.12
+- Fix all settings/config writes from the web UI (root cause found): Unraid's
+  CSRF guard silently discards any POST without a csrf_token - and the
+  plugin's JSON requests never carried one. All requests now send the
+  X-CSRF-Token header. This fixes saving Network (LAN) settings AND the
+  device config editor / NVM / clear-faults buttons.
+
 ## 0.11
 - Rewrite the Network (LAN) settings handler so saving works reliably - verified
   to write the config and always return proper JSON (the 0.7-0.10 attempts left

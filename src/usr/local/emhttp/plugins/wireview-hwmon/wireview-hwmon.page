@@ -467,6 +467,10 @@ function wireviewSaveNetwork() {
 }
 
 $(function() {
+  // Unraid's CSRF guard (local_prepend.php) silently kills any POST that lacks
+  // csrf_token in $_POST or an X-CSRF-Token header. Our POSTs send JSON bodies,
+  // so $_POST is empty - the header is the only way to pass the check.
+  $.ajaxSetup({headers: {'X-CSRF-Token': csrf_token}});
   wireviewRefresh();
   wireviewLoadNetwork();
   wireviewLoadConfig();
