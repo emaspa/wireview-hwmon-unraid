@@ -12,6 +12,11 @@
  * host list for `wireviewctl top`).
  */
 
+// JSON endpoint: keep PHP warnings/notices out of the body. With Unraid's
+// display_errors on, a leaked warning (e.g. a failed flash write) prepends text
+// to the JSON, so the browser can't parse it and the save shows a generic
+// "Failed to save network settings" instead of the real error.
+ini_set('display_errors', '0');
 header('Content-Type: application/json');
 
 $FLASH = '/boot/config/plugins/wireview-hwmon/network.cfg';
@@ -32,8 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     @mkdir(dirname($FLASH), 0755, true);
     $body = "remote_enabled=$remote\nport=$port\nsecret=$secret\nlog_days=$logDays\nhosts=$hostsCsv\n";
-    if (file_put_contents($FLASH, $body) === false) {
-        echo json_encode(['error' => 'Failed to write settings to the flash drive']);
+    if (@file_put_contents($FLASH, $body) === false) {
+        $err = error_get_last();
+        echo json_encode(['error' => 'Could not write ' . $FLASH . ' - ' .
+            ($err['message'] ?? 'is the flash drive writable?')]);
         exit;
     }
     @chmod($FLASH, 0600);

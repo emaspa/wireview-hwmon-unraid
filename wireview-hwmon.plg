@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.8">
+  <!ENTITY version   "0.9">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,12 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.9
+- Actually fix saving Network (LAN) settings: create the flash config dir
+  `/boot/config/plugins/wireview-hwmon` on install (it never existed, so the
+  save failed to write it), and stop a leaked PHP warning from corrupting the
+  JSON response (which had masked the real error as a generic failure).
+
 ## 0.8
 - Fix "Failed to save network settings" under Network (LAN): the save now
   returns immediately and restarts the daemon in the background, instead of
@@ -71,6 +77,11 @@ fi
 # Install the Slackware package
 installpkg "${PKG_FILE}"
 rm -f "${PKG_FILE}"
+
+# Persistent config dir on the flash drive. LAN/network settings are saved here
+# by the webGui; create it as root at install time since the webGui PHP context
+# can't reliably create dirs under /boot itself.
+mkdir -p /boot/config/plugins/${PLUGIN}
 
 # Rebuild module dependency list
 depmod -a
