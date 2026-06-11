@@ -113,7 +113,17 @@ $SCREEN_BITS = [
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
+    // Unraid's webGui ajaxPrefilter appends "&csrf_token=..." to every jQuery
+    // POST body, corrupting JSON - strip it before parsing.
+    $raw = file_get_contents('php://input');
+    $amp = strpos($raw, '&csrf_token=');
+    if ($amp !== false) $raw = substr($raw, 0, $amp);
+    $input = json_decode($raw, true);
+    if (!is_array($input)) {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Bad request body (not JSON)']);
+        exit;
+    }
     if (isset($input['nvm'])) {
         handleNvm($input['nvm']);
     } elseif (isset($input['clear_faults'])) {

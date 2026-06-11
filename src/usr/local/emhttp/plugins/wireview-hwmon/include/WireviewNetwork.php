@@ -11,8 +11,19 @@
 $FLASH = '/boot/config/plugins/wireview-hwmon/network.cfg';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $in = json_decode(file_get_contents('php://input'), true);
-    if (!is_array($in)) $in = [];
+    // Unraid's webGui ajaxPrefilter appends "&csrf_token=..." to EVERY jQuery
+    // POST body (DefaultPageLayout HeadInlineJS), which corrupts a JSON payload.
+    // Strip it before parsing, and refuse - rather than write defaults - if the
+    // body still doesn't parse.
+    $raw = file_get_contents('php://input');
+    $amp = strpos($raw, '&csrf_token=');
+    if ($amp !== false) $raw = substr($raw, 0, $amp);
+    $in = json_decode($raw, true);
+    if (!is_array($in)) {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Bad request body (not JSON)']);
+        exit;
+    }
 
     $remote  = !empty($in['remote_enabled']) ? 1 : 0;
     $port    = (int)($in['port'] ?? 9876);
