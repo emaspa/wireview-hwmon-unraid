@@ -45,19 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     @chmod($FLASH, 0600);
 
-    // Return the response BEFORE restarting the daemon. A full rc.wireviewd
-    // restart stops the daemon, reloads the kernel module and waits for it -
-    // several seconds - and running it inline made the browser's save time out
-    // ("Failed to save network settings") even though the flash write succeeded.
-    // rc.wireviewd re-applies the flash settings to /etc/wireview/* on start.
-    echo json_encode(['success' => true, 'message' => 'Network settings saved and applied.']);
-    if (function_exists('fastcgi_finish_request')) {
-        fastcgi_finish_request();
-        shell_exec('/etc/rc.d/rc.wireviewd restart > /dev/null 2>&1');
-    } else {
-        // Fallback: detach the restart so it can't block the response.
-        shell_exec('setsid /etc/rc.d/rc.wireviewd restart > /dev/null 2>&1 < /dev/null &');
-    }
+    // Reply with clean JSON, then apply. The daemon restart is FULLY DETACHED so
+    // it can't affect this response. (Don't use fastcgi_finish_request() here:
+    // with Unraid's output buffering it closes the connection before the buffer
+    // flushes, sending an EMPTY 200 body that the browser can't parse. A plain
+    // echo lets PHP flush normally at exit.) rc.wireviewd re-reads the flash
+    // settings on start.
+    echo json_encode(['success' => true, 'message' => 'Network settings saved.']);
+    @exec('setsid /etc/rc.d/rc.wireviewd restart >/dev/null 2>&1 </dev/null &');
     exit;
 }
 
