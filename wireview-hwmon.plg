@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.10">
+  <!ENTITY version   "0.11">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,12 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.11
+- Rewrite the Network (LAN) settings handler so saving works reliably - verified
+  to write the config and always return proper JSON (the 0.7-0.10 attempts left
+  the endpoint returning an empty response). If a prior version misbehaved,
+  remove and reinstall the plugin for a clean file.
+
 ## 0.10
 - Really fix saving Network (LAN) settings. The save returned an empty HTTP 200
   body - `fastcgi_finish_request()` (added in 0.8) closed the connection before

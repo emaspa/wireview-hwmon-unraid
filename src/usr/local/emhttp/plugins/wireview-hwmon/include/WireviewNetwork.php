@@ -2,74 +2,57 @@
 /*
  * WireviewNetwork.php - LAN network settings for the WireView Pro II daemon.
  *
- * GET  -> current settings (read from flash) + whether the daemon is listening.
- * POST -> persist settings to /boot/config/plugins/wireview-hwmon/network.cfg, then
- *         restart the daemon; rc.wireviewd regenerates /etc/wireview/{config,hosts}
- *         from the flash file on every start (since /etc is tmpfs on Unraid).
- *
- * Settings: remote_enabled (open the LAN listener), secret (shared HMAC passphrase
- * for authenticated remote writes), log_days (audit-log retention), hosts (remote
- * host list for `wireviewctl top`).
+ * GET  -> current settings (read from the flash file) + whether the daemon is
+ *         listening on the configured port.
+ * POST -> persist settings to /boot/config/plugins/wireview-hwmon/network.cfg,
+ *         then restart the daemon (detached) so rc.wireviewd re-applies them.
  */
-
-// JSON endpoint: keep PHP warnings/notices out of the body. With Unraid's
-// display_errors on, a leaked warning (e.g. a failed flash write) prepends text
-// to the JSON, so the browser can't parse it and the save shows a generic
-// "Failed to save network settings" instead of the real error.
-ini_set('display_errors', '0');
-header('Content-Type: application/json');
 
 $FLASH = '/boot/config/plugins/wireview-hwmon/network.cfg';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $in = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($in)) $in = [];
 
     $remote  = !empty($in['remote_enabled']) ? 1 : 0;
-    $port    = isset($in['port']) ? (int)$in['port'] : 9876;
+    $port    = (int)($in['port'] ?? 9876);
     if ($port < 1 || $port > 65535) $port = 9876;
-    $secret  = isset($in['secret']) ? trim((string)$in['secret']) : '';
-    $logDays = isset($in['log_days']) ? max(0, (int)$in['log_days']) : 14;
-    $hostsIn = isset($in['hosts']) ? (string)$in['hosts'] : '';
-
-    // Normalize the host list to a comma-separated string (split on commas/whitespace).
-    $hostList = preg_split('/[\s,]+/', trim($hostsIn), -1, PREG_SPLIT_NO_EMPTY);
-    $hostsCsv = implode(',', $hostList);
+    $secret  = trim((string)($in['secret'] ?? ''));
+    $logDays = max(0, (int)($in['log_days'] ?? 14));
+    $hosts   = preg_split('/[\s,]+/', trim((string)($in['hosts'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
     @mkdir(dirname($FLASH), 0755, true);
-    $body = "remote_enabled=$remote\nport=$port\nsecret=$secret\nlog_days=$logDays\nhosts=$hostsCsv\n";
-    if (@file_put_contents($FLASH, $body) === false) {
-        $err = error_get_last();
-        echo json_encode(['error' => 'Could not write ' . $FLASH . ' - ' .
-            ($err['message'] ?? 'is the flash drive writable?')]);
-        exit;
-    }
+    $body = "remote_enabled=$remote\nport=$port\nsecret=$secret\nlog_days=$logDays\nhosts="
+          . implode(',', $hosts) . "\n";
+    $ok = @file_put_contents($FLASH, $body);
     @chmod($FLASH, 0600);
 
-    // Reply with clean JSON, then apply. The daemon restart is FULLY DETACHED so
-    // it can't affect this response. (Don't use fastcgi_finish_request() here:
-    // with Unraid's output buffering it closes the connection before the buffer
-    // flushes, sending an EMPTY 200 body that the browser can't parse. A plain
-    // echo lets PHP flush normally at exit.) rc.wireviewd re-reads the flash
-    // settings on start.
-    echo json_encode(['success' => true, 'message' => 'Network settings saved.']);
+    // Apply: restart the daemon fully detached so it can never affect this response.
     @exec('setsid /etc/rc.d/rc.wireviewd restart >/dev/null 2>&1 </dev/null &');
+
+    header('Content-Type: application/json');
+    echo json_encode($ok === false
+        ? ['error' => "Could not write $FLASH"]
+        : ['success' => true, 'message' => 'Network settings saved.']);
     exit;
 }
 
-// GET: read the persisted settings (defaults if no flash file yet).
+// GET: current settings (defaults if no flash file yet).
 $cfg = ['remote_enabled' => 0, 'port' => 9876, 'secret' => '', 'log_days' => 14, 'hosts' => ''];
 if (is_file($FLASH)) {
     foreach (file($FLASH, FILE_IGNORE_NEW_LINES) as $line) {
         $p = strpos($line, '=');
-        if ($p === false) continue;
-        $cfg[substr($line, 0, $p)] = substr($line, $p + 1);
+        if ($p !== false) $cfg[substr($line, 0, $p)] = substr($line, $p + 1);
     }
 }
-
 $port = (int)$cfg['port'];
 if ($port < 1 || $port > 65535) $port = 9876;
-$listening = trim(shell_exec("ss -ltn 2>/dev/null | grep -c ':$port '")) !== '0';
 
+$listening = false;
+$ls = @shell_exec('ss -ltn 2>/dev/null');
+if (is_string($ls) && strpos($ls, ":$port ") !== false) $listening = true;
+
+header('Content-Type: application/json');
 echo json_encode([
     'remote_enabled' => (int)$cfg['remote_enabled'],
     'port'           => $port,
