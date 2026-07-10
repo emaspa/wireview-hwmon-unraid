@@ -119,12 +119,12 @@ wireviewctl clear-faults
 wireviewctl screen main
 wireviewctl screen temp
 wireviewctl screen pause
+wireviewctl screen resume
 
 # Update the device firmware to the bundled image over DFU (add -y for no
 # prompt). Unofficial tool: flash at your own risk. Also works if the device
 # is already stuck in bootloader mode.
 wireviewctl flash
-wireviewctl screen resume
 
 # Live dashboard (local + remote hosts; q to quit)
 wireviewctl top
@@ -133,7 +133,7 @@ wireviewctl top --host 192.168.1.50
 
 ## Supported Unraid versions
 
-Pre-built packages cover Unraid 7.2.x, 7.3.0, and 7.3.1 (kernels `6.12.54`, `6.18.29`, and `6.18.33-Unraid`). The plugin automatically downloads the package matching your running kernel.
+Pre-built packages cover Unraid 7.2.x, 7.3.0, 7.3.1, and 7.3.2 (kernels `6.12.54`, `6.18.29`, `6.18.33`, and `6.18.38-Unraid`). The plugin automatically downloads the package matching your running kernel.
 
 Check the [releases page](https://github.com/emaspa/wireview-hwmon-unraid/releases) for all available packages.
 
@@ -143,13 +143,13 @@ The build system uses Docker to cross-compile the kernel module against Unraid k
 
 ```bash
 mkdir -p output cache
-docker build -t wireview-builder --build-arg UNRAID_VERSION=7.3.1 build/
+docker build -t wireview-builder --build-arg UNRAID_VERSION=7.3.2 build/
 docker run --rm \
   -v "$(pwd):/src:ro" \
   -v "$(pwd)/output:/output" \
   -v "$(pwd)/cache:/cache" \
-  -e UNRAID_VERSION=7.3.1 \
-  -e PLUGIN_VERSION=0.7 \
+  -e UNRAID_VERSION=7.3.2 \
+  -e PLUGIN_VERSION=0.15.1 \
   wireview-builder
 ```
 
@@ -168,6 +168,8 @@ The resulting `.txz` package will be in `output/`.
 - You can build from source (see above)
 
 **Module fails to load**
+- Since 0.15.1 the installer and `/etc/rc.d/rc.wireviewd` print the actual
+  modprobe error and recent kernel log lines on failure
 - Run `dmesg | tail -20` to check for errors
 - Ensure the module matches your exact kernel: `uname -r`
 
