@@ -33,7 +33,8 @@ The plugin will automatically download the correct package for your kernel versi
 |---|---|
 | `wireview_hwmon.ko` | Kernel module exposing sensors via `/sys/class/hwmon/` |
 | `wireviewd` | Daemon that reads the USB device and feeds data to the kernel module |
-| `wireviewctl` | CLI tool for querying sensors and sending device commands |
+| `wireviewctl` | CLI tool for querying sensors, sending device commands, and firmware flashing |
+| `dfu-util` + firmware v05 | Bundled statically so `wireviewctl flash` works out of the box |
 | Web GUI | Dashboard tile with live readings + full device configuration page |
 | Fault monitor | Background service that sends Unraid notifications on fault events |
 
@@ -118,6 +119,11 @@ wireviewctl clear-faults
 wireviewctl screen main
 wireviewctl screen temp
 wireviewctl screen pause
+
+# Update the device firmware to the bundled image over DFU (add -y for no
+# prompt). Unofficial tool: flash at your own risk. Also works if the device
+# is already stuck in bootloader mode.
+wireviewctl flash
 wireviewctl screen resume
 
 # Live dashboard (local + remote hosts; q to quit)

@@ -65,6 +65,34 @@ gcc -Wall -Wextra -Wno-format-truncation -O2 -static \
 echo "Built: wireviewd, wireviewctl"
 
 echo ""
+echo "=== Building static dfu-util (for wireviewctl flash) ==="
+
+# Step 3b: static libusb + dfu-util. Stock Unraid ships no dfu-util, so the
+# package bundles a statically linked one to make firmware flashing work.
+LIBUSB_VERSION=1.0.27
+DFU_UTIL_VERSION=0.11
+LIBUSB_TAR="/cache/libusb-${LIBUSB_VERSION}.tar.bz2"
+DFU_TAR="/cache/dfu-util-${DFU_UTIL_VERSION}.tar.gz"
+[ -f "$LIBUSB_TAR" ] || wget -q -O "$LIBUSB_TAR" \
+    "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+[ -f "$DFU_TAR" ] || wget -q -O "$DFU_TAR" \
+    "https://dfu-util.sourceforge.net/releases/dfu-util-${DFU_UTIL_VERSION}.tar.gz"
+
+DFU_PREFIX=/build/dfu-prefix
+mkdir -p /build/dfu-src && cd /build/dfu-src
+tar -xf "$LIBUSB_TAR"
+(cd "libusb-${LIBUSB_VERSION}" && \
+    ./configure --prefix="$DFU_PREFIX" --enable-static --disable-shared --disable-udev > /dev/null && \
+    make -j"$(nproc)" > /dev/null && make install > /dev/null)
+tar -xf "$DFU_TAR"
+(cd "dfu-util-${DFU_UTIL_VERSION}" && \
+    PKG_CONFIG_PATH="$DFU_PREFIX/lib/pkgconfig" ./configure --prefix="$DFU_PREFIX" LDFLAGS="-static" > /dev/null && \
+    make -j"$(nproc)" > /dev/null && make install > /dev/null)
+file "$DFU_PREFIX/bin/dfu-util" | grep -q "statically linked" || {
+    echo "ERROR: dfu-util is not statically linked"; exit 1; }
+echo "Built: dfu-util (static)"
+
+echo ""
 echo "=== Assembling package ==="
 
 # Step 4: Assemble package directory tree
@@ -78,6 +106,11 @@ cp -a "$SRC_DIR/src/"* "$PKG_DIR/"
 mkdir -p "$PKG_DIR/usr/local/bin"
 install -m 755 /build/wireviewd "$PKG_DIR/usr/local/bin/wireviewd"
 install -m 755 /build/wireviewctl "$PKG_DIR/usr/local/bin/wireviewctl"
+install -m 755 /build/dfu-prefix/bin/dfu-util "$PKG_DIR/usr/local/bin/dfu-util"
+
+# Bundled device firmware: default image for "wireviewctl flash"
+install -D -m 644 "$UPSTREAM/firmware/TG-WV-PRO2-FW.hex" \
+    "$PKG_DIR/usr/share/wireview/TG-WV-PRO2-FW.hex"
 
 # Fix ownership and permissions (Unraid expects root:root, executable PHP/scripts)
 chown -R root:root "$PKG_DIR"

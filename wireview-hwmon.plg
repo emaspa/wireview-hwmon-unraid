@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.14">
+  <!ENTITY version   "0.15">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,18 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.15
+- Update to wireview-hwmon 1.5.0.
+- Firmware flashing from the terminal: new "wireviewctl flash" command updates
+  the device firmware over DFU. The package now bundles the official firmware
+  image (v05) and a static dfu-util, so "wireviewctl flash -y" is a complete
+  update with no extra downloads - and it can recover a device already stuck
+  in bootloader mode. Unofficial tool: flash at your own risk.
+- Serial handover protocol: the desktop app (v1.2.0.0) can borrow the USB
+  port through the daemon for device log reads, display theme uploads, and
+  firmware flashing, then polling resumes automatically.
+- Add support for Unraid 7.3.2 (kernel 6.18.38-Unraid).
+
 ## 0.14
 - Update to wireview-hwmon 1.4.1: fix phantom fault alerts. The daemon now
   discards corrupt (desynced) serial frames via padding/fan-duty sanity
