@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.15">
+  <!ENTITY version   "0.15.1">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,14 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.15.1
+- Fix the kernel module failing to load on Unraid 7.3.2: no pre-configured
+  kernel source existed yet for kernel 6.18.38, and the build fell back to a
+  generic config that produced an incompatible module. The build now uses
+  the kernel config Unraid ships inside its own release image, and refuses
+  to package a module whose version magic does not match the target kernel.
+  Reinstall/update the plugin to get the working 7.3.2 package.
+
 ## 0.15
 - Update to wireview-hwmon 1.5.0.
 - Firmware flashing from the terminal: new "wireviewctl flash" command updates
@@ -134,7 +142,9 @@ mkdir -p /boot/config/plugins/${PLUGIN}
 depmod -a
 
 # Load kernel module
-modprobe wireview_hwmon 2>/dev/null || {
+modprobe wireview_hwmon || {
+  echo "Recent kernel log:"
+  dmesg | tail -5
   echo "WARNING: Could not load wireview_hwmon module."
   echo "It will be loaded when the daemon starts."
 }

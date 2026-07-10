@@ -49,9 +49,10 @@ start() {
 
   # Load kernel module if not already loaded
   if ! lsmod | grep -q "^${MODULE}"; then
-    modprobe "$MODULE" 2>/dev/null || insmod "/lib/modules/$(uname -r)/extra/${MODULE}.ko" 2>/dev/null
+    modprobe "$MODULE" || insmod "/lib/modules/$(uname -r)/extra/${MODULE}.ko"
     if [ $? -ne 0 ]; then
-      echo "ERROR: Failed to load ${MODULE} kernel module"
+      echo "ERROR: Failed to load ${MODULE} kernel module (kernel $(uname -r)); recent kernel log:"
+      dmesg | tail -5
       return 1
     fi
   fi

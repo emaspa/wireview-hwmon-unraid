@@ -52,6 +52,16 @@ if [ -z "$MODULE_FILE" ]; then
 fi
 echo "Built: $MODULE_FILE"
 
+# The module only loads if its vermagic matches the running Unraid kernel
+# exactly (version string + SMP/preempt flags from the config). Refuse to
+# package a module built against the wrong version.
+VERMAGIC=$(modinfo -F vermagic "$MODULE_FILE")
+echo "vermagic: $VERMAGIC"
+case "$VERMAGIC" in
+    "${KVER} "*) ;;
+    *) echo "ERROR: vermagic does not match target kernel ${KVER}"; exit 1 ;;
+esac
+
 echo ""
 echo "=== Building userspace tools ==="
 

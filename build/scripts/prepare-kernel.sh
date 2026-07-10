@@ -158,7 +158,20 @@ if [ -n "$KERNEL_TAR" ] && [ -f "$KERNEL_TAR" ]; then
     fi
     echo "Using Unraid kernel config from pre-configured source"
 else
-    # Fallback: download from kernel.org + defconfig
+    # Fallback: kernel.org source + the real kernel config that Unraid ships
+    # inside the release image (src/linux-<kver>/config in bzmodules, seen
+    # since 7.3.2). A defconfig build produces an ABI-incompatible module
+    # that the running kernel refuses to load, so if neither ich777's
+    # pre-configured source nor the shipped config is available, fail the
+    # build instead of packaging a module that cannot load.
+    SHIPPED_CONFIG="$WORK_DIR/modules/src/linux-${KVER}/config"
+    if [ ! -f "$SHIPPED_CONFIG" ]; then
+        echo "ERROR: no pre-configured kernel source (ich777/unraid_kernel) and the"
+        echo "Unraid release image does not ship src/linux-${KVER}/config."
+        echo "Cannot produce a loadable module for ${KVER}."
+        exit 1
+    fi
+
     BASE_KVER=$(echo "$KVER" | sed 's/-.*$//')
     MAJOR_VER=$(echo "$BASE_KVER" | cut -d. -f1)
 
@@ -174,10 +187,8 @@ else
     tar xf "$KERNEL_TAR"
     KSRC="$WORK_DIR/linux-${BASE_KVER}"
 
-    echo "WARNING: Using defconfig — kernel module may not load on Unraid"
-    cd "$KSRC" && make defconfig
-    sed -i "s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"-Unraid\"/" .config 2>/dev/null || \
-        echo 'CONFIG_LOCALVERSION="-Unraid"' >> .config
+    echo "Using the kernel config shipped in the Unraid release image"
+    cp "$SHIPPED_CONFIG" "$KSRC/.config"
 fi
 
 # ── Step 3: Prepare kernel headers for out-of-tree module build ─────────
