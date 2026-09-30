@@ -141,11 +141,12 @@ KVER=$(uname -r)
 echo "--- Installing ${PLUGIN} v${VERSION} for kernel ${KVER} ---"
 
 # Download the matching package from GitHub Releases
-# Keep the full package name: installpkg registers the package under the
-# file name, and upgradepkg tells versions apart by it.
-PKG_NAME="${PLUGIN}-${VERSION}-x86_64-${KVER}"
-PKG_URL="${REPO}/releases/download/v${VERSION}/${PKG_NAME}.txz"
-PKG_FILE="/tmp/${PKG_NAME}.txz"
+# Download to the Slackware name-version-arch-build form: installpkg
+# registers the package under the file name, and upgradepkg tells versions
+# apart by it. The build field may not contain a dash, so the kernel
+# version becomes 6.18.38_Unraid there.
+PKG_URL="${REPO}/releases/download/v${VERSION}/${PLUGIN}-${VERSION}-x86_64-${KVER}.txz"
+PKG_FILE="/tmp/${PLUGIN}-${VERSION}-x86_64-${KVER//-/_}.txz"
 
 echo "Downloading ${PKG_URL}..."
 wget -q -O "${PKG_FILE}" "${PKG_URL}"
@@ -164,9 +165,13 @@ if [ -x /etc/rc.d/rc.wireviewd ]; then
   /etc/rc.d/rc.wireviewd stop
 fi
 
-# Install the Slackware package, replacing a previous version. Versions
-# before 0.16 were registered as plain "wireview-hwmon" with no version,
-# so --reinstall is needed for upgradepkg to replace them.
+# Versions before 0.16 registered the package as plain "wireview-hwmon";
+# drop that entry so it does not linger next to the versioned one.
+if [ -e "/var/log/packages/${PLUGIN}" ]; then
+  removepkg "${PLUGIN}"
+fi
+
+# Install the Slackware package, replacing a previous version
 upgradepkg --reinstall --install-new "${PKG_FILE}"
 rm -f "${PKG_FILE}"
 
@@ -215,8 +220,13 @@ fi
 # Unload kernel module
 rmmod wireview_hwmon 2>/dev/null
 
-# Remove the Slackware package
-removepkg "${PLUGIN}" 2>/dev/null
+# Remove the Slackware package: the versioned entry from 0.16 on, or the
+# plain one from earlier releases
+for pkg in "/var/log/packages/${PLUGIN}" /var/log/packages/${PLUGIN}-[0-9]*; do
+  if [ -e "$pkg" ]; then
+    removepkg "$(basename "$pkg")"
+  fi
+done
 
 # Rebuild module dependency list
 depmod -a
