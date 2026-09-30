@@ -55,8 +55,8 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
   <div id="wv-dash-error" class="wv-err" style="display:none;"></div>
   <div id="wv-dash-success" class="wv-ok" style="display:none;"></div>
   <table class="wireview-info-table">
-    <tr><td>Headline:</td><td><select id="dash-headline"></select></td></tr>
-    <tr><td>Refresh every:</td><td><select id="dash-refresh"></select></td></tr>
+    <tr><td>Headline:</td><td><select id="dash-headline" style="width:220px"></select></td></tr>
+    <tr><td>Refresh every:</td><td><select id="dash-refresh" style="width:220px"></select></td></tr>
   </table>
   <table class="wireview-info-table" id="wv-dash-rows"></table>
   <div style="margin-top:10px;">
