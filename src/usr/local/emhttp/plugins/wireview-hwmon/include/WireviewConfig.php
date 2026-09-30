@@ -88,7 +88,8 @@ $ENUMS = [
     'theme'          => ['TG1', 'TG2', 'TG3'],
     'display_rotation' => ['0°', '180°'],
     'timeout_mode'   => ['Static', 'Cycle', 'Sleep'],
-    'average'        => ['22ms', '44ms', '89ms', '177ms', '354ms', '709ms', '1417ms'],
+    // Averaging windows; firmware v05 adds the last two
+    'average'        => ['22 ms', '44 ms', '89 ms', '177 ms', '354 ms', '709 ms', '1.4 s', '2.8 s', '5.7 s'],
     'default_screen' => ['Main', 'Simple', 'Current', 'Temp', 'Status'],
 ];
 
@@ -168,6 +169,10 @@ function handleRead() {
     $configVersion = 0;
     if (preg_match('/config_version:\s*(\d+)/', $info, $m)) {
         $configVersion = (int)$m[1];
+    }
+    $firmwareVersion = 0;
+    if (preg_match('/^firmware:\s*(\d+)/m', $info, $m)) {
+        $firmwareVersion = (int)$m[1];
     }
 
     $bytes = hex2bytes($hex);
@@ -257,8 +262,14 @@ function handleRead() {
         $cfg['timeout']          = u8($bytes, OFF_V0_TIMEOUT);
     }
 
-    // Include enum labels and fault bit names for the UI
+    // Include enum labels and fault bit names for the UI. Averaging
+    // windows above 1.4 s need firmware v05; older firmware ignores or
+    // rejects them, so do not offer them.
     $result['enums'] = $ENUMS;
+    if ($firmwareVersion < 5) {
+        $result['enums']['average'] = array_slice($ENUMS['average'], 0, 7);
+    }
+    $result['firmware_version'] = $firmwareVersion;
     $result['fault_bits'] = $FAULT_BITS;
     $result['screen_bits'] = $SCREEN_BITS;
 
