@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.15.1">
+  <!ENTITY version   "0.16">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,31 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.16
+- Choose what the dashboard tile shows. Settings > Utilities > WireView
+  Pro II has a new Dashboard Tile section: tick the readings to list, pick
+  what the header shows next to the status orb, and set the refresh
+  interval. The header can show total power, total current, average
+  voltage, hottest temperature or energy. Saved on the flash drive.
+- The tile shows the energy used since the daemon started, names the
+  faults instead of showing a hex mask, and turns a pin, total or
+  temperature red when its alarm is set. Fault notifications name the
+  faults too.
+- Packages for Unraid 7.2.5, 7.2.6, 7.2.7, 7.2.8 and 7.4.0-beta.3, with
+  kernels 6.12.85, 6.12.87, 6.12.90, 6.12.98 and 6.18.52. Those releases
+  had no package before and the install failed with "Failed to download".
+- Update to wireview-hwmon 1.7.1: Noctua Edition support, bundled
+  firmware build 20260902_0741, energy counter and alarm attributes in
+  hwmon, a 3 second limit on LAN requests, and the fan duty moved from
+  fan1_input to pwm1. wireviewctl flash now refuses an older image, an
+  image for another product, and the build the device already runs.
+- The config editor offers the 2.8 s and 5.7 s averaging windows on
+  firmware v05.
+- wireviewd and wireviewctl are now linked against musl. A static glibc
+  build loads the host's name service libraries and can crash when the
+  host glibc differs from the build one.
+- The serial port and /dev/wireview-hwmon are no longer world-writable.
+
 ## 0.15.1
 - Fix the kernel module failing to load on Unraid 7.3.2: no pre-configured
   kernel source existed yet for kernel 6.18.38, and the build fell back to a
