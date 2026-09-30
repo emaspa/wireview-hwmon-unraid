@@ -10,7 +10,7 @@ on:
       unraid_versions:
         description: 'JSON array of Unraid versions to build for'
         required: false
-        default: '["7.2.3","7.3.0","7.3.1","7.3.2"]'
+        default: '["7.2.3","7.2.5","7.2.6","7.2.7","7.2.8","7.3.0","7.3.1","7.3.2","7.4.0-beta.3"]'
 
 permissions:
   contents: write
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        unraid_version: ${{ fromJSON(inputs.unraid_versions || '["7.2.3","7.3.0","7.3.1","7.3.2"]') }}
+        unraid_version: ${{ fromJSON(inputs.unraid_versions || '["7.2.3","7.2.5","7.2.6","7.2.7","7.2.8","7.3.0","7.3.1","7.3.2","7.4.0-beta.3"]') }}
       fail-fast: false
 
     steps:
@@ -29,11 +29,15 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache Unraid downloads
+      # Kernel source (300 MB) per version, plus the libusb and dfu-util
+      # tarballs. The Unraid release image is only downloaded when a
+      # kernel has no pre-configured source, so it rarely lands here.
+      - name: Cache kernel source downloads
         uses: actions/cache@v4
         with:
           path: cache
-          key: unraid-${{ matrix.unraid_version }}
+          key: unraid-${{ matrix.unraid_version }}-${{ hashFiles('build/unraid-versions.conf') }}
+          restore-keys: unraid-${{ matrix.unraid_version }}-
 
       - name: Extract version from tag
         id: version

@@ -133,13 +133,25 @@ wireviewctl top --host 192.168.1.50
 
 ## Supported Unraid versions
 
-Pre-built packages cover Unraid 7.2.x, 7.3.0, 7.3.1, and 7.3.2 (kernels `6.12.54`, `6.18.29`, `6.18.33`, and `6.18.38-Unraid`). The plugin automatically downloads the package matching your running kernel.
+Pre-built packages cover every Unraid release since 7.2.3, plus the current 7.4.0 beta. The plugin downloads the package matching your running kernel.
+
+| Unraid | Kernel |
+|---|---|
+| 7.2.3, 7.2.4 | 6.12.54-Unraid |
+| 7.2.5 | 6.12.85-Unraid |
+| 7.2.6 | 6.12.87-Unraid |
+| 7.2.7 | 6.12.90-Unraid |
+| 7.2.8 | 6.12.98-Unraid |
+| 7.3.0 | 6.18.29-Unraid |
+| 7.3.1 | 6.18.33-Unraid |
+| 7.3.2 | 6.18.38-Unraid |
+| 7.4.0-beta.3 | 6.18.52-Unraid |
 
 Check the [releases page](https://github.com/emaspa/wireview-hwmon-unraid/releases) for all available packages.
 
 ## Building from source
 
-The build system uses Docker to cross-compile the kernel module against Unraid kernel headers.
+The build system uses Docker to compile the kernel module against the Unraid kernel source. `build/unraid-versions.conf` maps each Unraid version to its release image and kernel version; with the kernel version listed and a pre-configured source on [ich777/unraid_kernel](https://github.com/ich777/unraid_kernel), the build skips the 1 GB release image download.
 
 ```bash
 mkdir -p output cache
@@ -149,7 +161,7 @@ docker run --rm \
   -v "$(pwd)/output:/output" \
   -v "$(pwd)/cache:/cache" \
   -e UNRAID_VERSION=7.3.2 \
-  -e PLUGIN_VERSION=0.15.1 \
+  -e PLUGIN_VERSION=0.16 \
   wireview-builder
 ```
 
