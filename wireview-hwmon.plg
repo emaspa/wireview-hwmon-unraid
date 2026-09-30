@@ -154,8 +154,15 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Install the Slackware package
-installpkg "${PKG_FILE}"
+# On an update, stop the running daemon and unload its module first: the
+# new daemon and module go together, and the old ones would otherwise keep
+# running until the next reboot.
+if [ -x /etc/rc.d/rc.wireviewd ]; then
+  /etc/rc.d/rc.wireviewd stop
+fi
+
+# Install the Slackware package, replacing a previous version
+upgradepkg --install-new "${PKG_FILE}"
 rm -f "${PKG_FILE}"
 
 # Persistent config dir on the flash drive. LAN/network settings are saved here
