@@ -9,7 +9,7 @@ $mytiles['wireview-hwmon']['column2'] = <<<'EOT'
         <span class='tile-header'>
         <span class='tile-header-left'>
             <i class='fa fa-bolt f32'></i>
-            <div class='section'>_(WireView Pro II)_<br><span id="wv-dash-headline"></span><br><br></div>
+            <div class='section'><span id="wv-dash-title">_(WireView Pro II)_</span><br><span id="wv-dash-headline"></span><br><br></div>
         </span>
         <span class='tile-header-right'>
             <span class='tile-header-right-controls'>
@@ -27,94 +27,43 @@ EOT;
 ?>
 
 <script>
+// The tile shows what /include/WireviewDashboard.php?tile=1 returns: rows
+// already formatted and filtered by the settings saved under
+// Settings > Utilities > WireView Pro II > Dashboard Tile. The response
+// also carries the refresh interval, so a saved change applies on the
+// next poll without reloading the dashboard.
+var wireviewDashTimer = null;
+
+function wireviewDashSchedule(seconds) {
+  if (wireviewDashTimer) clearTimeout(wireviewDashTimer);
+  wireviewDashTimer = setTimeout(wireviewDashUpdate, seconds * 1000);
+}
+
 function wireviewDashUpdate() {
-  $.getJSON('/plugins/wireview-hwmon/include/WireviewSensors.php', function(d) {
+  $.getJSON('/plugins/wireview-hwmon/include/WireviewDashboard.php?tile=1', function(d) {
     var $tile = $('#wireview-dash-tile');
     $tile.find('tr.wv-data,tr.wv-hdr').remove();
-
-    if (!d.daemon_running || !d.sensors || !d.sensors.has_data) {
-      $('#wv-dash-headline').html('<i class="fa fa-circle orb grey-orb middle"></i> Offline');
-      return;
-    }
-
-    var s = d.sensors;
-    var totalP = s.total_power !== null ? (s.total_power / 1000000).toFixed(1) + ' W' : 'N/A';
-    var fault = s.fault_status && s.fault_status !== 0;
-    var orbClass = fault ? 'red-orb' : 'green-orb';
-    $('#wv-dash-headline').html('<i class="fa fa-circle orb ' + orbClass + ' middle"></i> ' + totalP);
+    $('#wv-dash-title').text(d.title);
+    $('#wv-dash-headline').html('<i class="fa fa-circle orb ' + d.color + '-orb middle"></i> ' + d.headline);
 
     var rows = '';
-    function section(title) {
+    $.each(d.sections, function(i, section) {
       rows += '<tr class="wv-hdr"><td style="height:8px"></td></tr>';
-      rows += '<tr class="wv-hdr"><td><span class="w18"></span><span class="w72">' + title + '</span></td></tr>';
-    }
-    function row(color, name, reading) {
-      rows += '<tr class="wv-data"><td>';
-      rows += '<span class="w18"><i class="fa fa-circle orb ' + color + '-orb middle"></i></span>';
-      rows += '<span class="w36">' + name + '</span>';
-      rows += '<span class="w36">' + reading + '</span>';
-      rows += '</td></tr>';
-    }
-    function fmtV(mv) { return mv !== null ? (mv / 1000).toFixed(3) + ' V' : 'N/A'; }
-    function fmtA(ma) { return ma !== null ? (ma / 1000).toFixed(3) + ' A' : 'N/A'; }
-    function fmtW(uw) { return uw !== null ? (uw / 1000000).toFixed(2) + ' W' : 'N/A'; }
-    function fmtT(mc) { return mc !== null ? (mc / 1000).toFixed(1) + ' &deg;C' : 'N/A'; }
-
-    // Voltage section
-    section('Voltage');
-    for (var i = 0; i < 6; i++) {
-      if (s.voltage[i] === null) continue;
-      row('green', 'Pin ' + (i+1), fmtV(s.voltage[i]));
-    }
-    row('green', 'Average', fmtV(s.avg_voltage));
-    if (s.vdd !== null) row('green', 'Vdd Supply', fmtV(s.vdd));
-
-    // Current section
-    section('Current');
-    for (var i = 0; i < 6; i++) {
-      if (s.current[i] === null) continue;
-      row('green', 'Pin ' + (i+1), fmtA(s.current[i]));
-    }
-    row('green', 'Total', fmtA(s.total_current));
-
-    // Power section
-    section('Power');
-    for (var i = 0; i < 6; i++) {
-      if (s.pin_power[i] === null) continue;
-      row('green', 'Pin ' + (i+1), fmtW(s.pin_power[i]));
-    }
-    row('green', 'Total', fmtW(s.total_power));
-
-    // Temperature section
-    section('Temperature');
-    var tempNames = ['Onboard In', 'Onboard Out', 'External 1', 'External 2'];
-    for (var i = 0; i < 4; i++) {
-      if (s.temp[i] === null) continue;
-      var tc = fault ? 'red' : (s.temp[i] > 70000 ? 'orange' : 'green');
-      row(tc, tempNames[i], fmtT(s.temp[i]));
-    }
-
-    // Status section
-    section('Status');
-    if (s.fan_duty !== null) row('green', 'Fan Duty', s.fan_duty + ' %');
-
-    if (s.fault_status !== null) {
-      var fc = s.fault_status !== 0 ? 'red' : 'green';
-      var fv = s.fault_status !== 0 ? 'FAULT 0x' + s.fault_status.toString(16) : 'OK';
-      row(fc, 'Fault Status', fv);
-    }
-
-    if (s.fault_log !== null) {
-      var flc = s.fault_log !== 0 ? 'orange' : 'green';
-      var flv = s.fault_log !== 0 ? '0x' + s.fault_log.toString(16) : 'Clear';
-      row(flc, 'Fault Log', flv);
-    }
-
-    if (s.psu_cap !== null) row('green', 'PSU Capability', s.psu_cap);
-
+      rows += '<tr class="wv-hdr"><td><span class="w18"></span><span class="w72">' + section.title + '</span></td></tr>';
+      $.each(section.rows, function(j, r) {
+        rows += '<tr class="wv-data"><td>';
+        rows += '<span class="w18"><i class="fa fa-circle orb ' + r.color + '-orb middle"></i></span>';
+        rows += '<span class="w36">' + r.label + '</span>';
+        rows += '<span class="w36">' + r.value + '</span>';
+        rows += '</td></tr>';
+      });
+    });
     $tile.append(rows);
+    wireviewDashSchedule(d.refresh || 2);
+  }).fail(function() {
+    $('#wv-dash-headline').html('<i class="fa fa-circle orb grey-orb middle"></i> Offline');
+    wireviewDashSchedule(5);
   });
 }
 wireviewDashUpdate();
-var wireviewDashTimer = setInterval(wireviewDashUpdate, 2000);
 </script>

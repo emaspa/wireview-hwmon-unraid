@@ -49,6 +49,22 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
   </div>
 </div>
 
+<div id="wireview-dashboard" class="wireview-section">
+  <h2>Dashboard Tile</h2>
+  <p style="opacity:0.7;font-size:12px;margin:4px 0 10px;">Choose what the WireView tile on the Dashboard shows. Readings the device does not provide, such as an external sensor that is not connected, are left out on their own.</p>
+  <div id="wv-dash-error" class="wv-err" style="display:none;"></div>
+  <div id="wv-dash-success" class="wv-ok" style="display:none;"></div>
+  <table class="wireview-info-table">
+    <tr><td>Headline:</td><td><select id="dash-headline"></select></td></tr>
+    <tr><td>Refresh every:</td><td><select id="dash-refresh"></select></td></tr>
+  </table>
+  <table class="wireview-info-table" id="wv-dash-rows"></table>
+  <div style="margin-top:10px;">
+    <button onclick="wireviewSaveDashboard()" class="wv-btn">Save</button>
+    <button onclick="wireviewDashboardShowAll()" class="wv-btn">Show All</button>
+  </div>
+</div>
+
 <div id="wireview-device" class="wireview-section" style="display:none;">
   <h2>Device Info</h2>
   <table class="wireview-info-table">
@@ -466,6 +482,62 @@ function wireviewSaveNetwork() {
   });
 }
 
+function wireviewLoadDashboard() {
+  $.getJSON('/plugins/<?=$plugin?>/include/WireviewDashboard.php', function(data) {
+    var $h = $('#dash-headline').empty();
+    $.each(data.headlines, function(id, label) {
+      $h.append($('<option>').val(id).text(label).prop('selected', id == data.headline));
+    });
+    var $r = $('#dash-refresh').empty();
+    $.each(data.refresh_choices, function(i, sec) {
+      $r.append($('<option>').val(sec).text(sec + ' s').prop('selected', sec == data.refresh));
+    });
+    var hidden = {};
+    $.each(data.hidden, function(i, id) { hidden[id] = true; });
+    var html = '';
+    $.each(data.catalog, function(i, section) {
+      html += '<tr><td style="vertical-align:top;">' + section.title + ':</td><td>';
+      $.each(section.rows, function(j, row) {
+        html += '<label style="margin-right:12px;white-space:nowrap;"><input type="checkbox" class="dash-row" data-id="' + row.id + '"' + (hidden[row.id] ? '' : ' checked') + '> ' + row.label + '</label>';
+      });
+      html += '</td></tr>';
+    });
+    $('#wv-dash-rows').html(html);
+  });
+}
+
+function wireviewDashboardShowAll() {
+  $('.dash-row').prop('checked', true);
+}
+
+function wireviewSaveDashboard() {
+  var hidden = [];
+  $('.dash-row').each(function() {
+    if (!$(this).is(':checked')) hidden.push($(this).data('id'));
+  });
+  var payload = {
+    headline: $('#dash-headline').val(),
+    refresh: parseInt($('#dash-refresh').val()) || 2,
+    hidden: hidden
+  };
+  $('#wv-dash-error').hide();
+  $('#wv-dash-success').hide();
+  $.ajax({
+    url: '/plugins/<?=$plugin?>/include/WireviewDashboard.php',
+    type: 'POST', contentType: 'application/json',
+    data: JSON.stringify(payload), dataType: 'json',
+    success: function(data) {
+      if (data.error) {
+        $('#wv-dash-error').text(data.error).show();
+      } else {
+        $('#wv-dash-success').text(data.message || 'Saved.').show();
+        setTimeout(function() { $('#wv-dash-success').fadeOut(); }, 3000);
+      }
+    },
+    error: function() { $('#wv-dash-error').text('Failed to save dashboard tile settings.').show(); }
+  });
+}
+
 $(function() {
   // Unraid's CSRF guard (local_prepend.php) silently kills any POST that lacks
   // csrf_token in $_POST or an X-CSRF-Token header. Our POSTs send JSON bodies,
@@ -473,6 +545,7 @@ $(function() {
   $.ajaxSetup({headers: {'X-CSRF-Token': csrf_token}});
   wireviewRefresh();
   wireviewLoadNetwork();
+  wireviewLoadDashboard();
   wireviewLoadConfig();
   wireviewTimer = setInterval(wireviewRefresh, 5000);
 });
