@@ -47,6 +47,19 @@ prev_temp_warned=$2
 EOF
 }
 
+# Names of the faults set in a bitmask, comma separated (bit order as in
+# the firmware's FAULT enum)
+FAULT_NAMES=("Over-Temp (Chip)" "Over-Temp (Sensor)" "Over-Current" "Wire Over-Current" "Over-Power" "Current Imbalance")
+fault_names() {
+    local mask="$1" bit names=""
+    for bit in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        if (( mask & (1 << bit) )); then
+            names+="${names:+, }${FAULT_NAMES[$bit]:-Bit $bit}"
+        fi
+    done
+    echo "$names"
+}
+
 # Send an Unraid notification
 send_notify() {
     local importance="$1" subject="$2" desc="$3"
@@ -75,10 +88,9 @@ while true; do
 
     # Fault status transitions
     if [ "$fault_status" != "0" ] && [ "$prev_fault" = "0" ]; then
-        fault_hex=$(printf '%x' "$fault_status")
         send_notify "alert" \
             "GPU Power Fault Detected" \
-            "WireView Pro II reports fault status: 0x${fault_hex}"
+            "WireView Pro II reports: $(fault_names "$fault_status")"
     elif [ "$fault_status" = "0" ] && [ "$prev_fault" != "0" ]; then
         send_notify "normal" \
             "GPU Power Fault Cleared" \
