@@ -141,8 +141,11 @@ KVER=$(uname -r)
 echo "--- Installing ${PLUGIN} v${VERSION} for kernel ${KVER} ---"
 
 # Download the matching package from GitHub Releases
-PKG_URL="${REPO}/releases/download/v${VERSION}/${PLUGIN}-${VERSION}-x86_64-${KVER}.txz"
-PKG_FILE="/tmp/${PLUGIN}.txz"
+# Keep the full package name: installpkg registers the package under the
+# file name, and upgradepkg tells versions apart by it.
+PKG_NAME="${PLUGIN}-${VERSION}-x86_64-${KVER}"
+PKG_URL="${REPO}/releases/download/v${VERSION}/${PKG_NAME}.txz"
+PKG_FILE="/tmp/${PKG_NAME}.txz"
 
 echo "Downloading ${PKG_URL}..."
 wget -q -O "${PKG_FILE}" "${PKG_URL}"
@@ -161,8 +164,10 @@ if [ -x /etc/rc.d/rc.wireviewd ]; then
   /etc/rc.d/rc.wireviewd stop
 fi
 
-# Install the Slackware package, replacing a previous version
-upgradepkg --install-new "${PKG_FILE}"
+# Install the Slackware package, replacing a previous version. Versions
+# before 0.16 were registered as plain "wireview-hwmon" with no version,
+# so --reinstall is needed for upgradepkg to replace them.
+upgradepkg --reinstall --install-new "${PKG_FILE}"
 rm -f "${PKG_FILE}"
 
 # Persistent config dir on the flash drive. LAN/network settings are saved here
