@@ -1,6 +1,10 @@
 # WireView Pro II udev rules
-# Serial port access
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5740", MODE="0666", TAG+="uaccess"
+#
+# wireviewd, the webGui and wireviewctl all run as root on Unraid, so the
+# device nodes need no extra access. The serial port stays reachable for
+# the dialout group like on other distributions.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5740", GROUP="dialout", MODE="0660"
 
-# hwmon misc device — allow daemon write access
-KERNEL=="wireview-hwmon", SUBSYSTEM=="misc", MODE="0222"
+# /dev/wireview-hwmon keeps the kernel default (0600 root:root). Anything
+# that can write to it can inject fake readings into hwmon, and the only
+# writer is wireviewd.
