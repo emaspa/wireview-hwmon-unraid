@@ -110,15 +110,17 @@ function readSensors(string $path): array {
         $data['temp'][$i - 1] = readSysfs("$path/temp{$i}_input");
     }
 
-    // Fan duty
-    $data['fan_duty'] = readSysfs("$path/fan1_input");
+    // Fan duty: pwm1 is 0-255, the pages show percent
+    $pwm = readSysfs("$path/pwm1");
+    $data['fan_duty'] = $pwm !== null ? (int)round($pwm * 100 / 255) : null;
 
     // Fault status/log (custom attributes)
     $data['fault_status'] = readSysfs("$path/fault_status_raw");
     $data['fault_log'] = readSysfs("$path/fault_log_raw");
-    $psuRaw = readSysfs("$path/psu_cap");
-    $psuNames = ['600W', '450W', '300W', '150W'];
-    $data['psu_cap'] = ($psuRaw !== null && isset($psuNames[$psuRaw])) ? $psuNames[$psuRaw] : $psuRaw;
+
+    // PSU capability: power1_cap is in microwatts
+    $cap = readSysfs("$path/power1_cap");
+    $data['psu_cap'] = $cap !== null ? (int)round($cap / 1000000) . ' W' : null;
 
     // Check if we got any valid data
     if ($data['total_power'] !== null || $data['avg_voltage'] !== null) {

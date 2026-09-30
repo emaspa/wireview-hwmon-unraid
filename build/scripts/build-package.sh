@@ -65,14 +65,34 @@ esac
 echo ""
 echo "=== Building userspace tools ==="
 
-# Step 3: Build userspace tools (statically linked for portability across Unraid versions)
-# wireviewd now links the vendored SHA-256/HMAC (LAN write-command auth).
-gcc -Wall -Wextra -Wno-format-truncation -O2 -static \
-    -o /build/wireviewd "$UPSTREAM/wireviewd.c" "$UPSTREAM/sha256.c"
-gcc -Wall -Wextra -Wno-format-truncation -O2 -static \
-    -o /build/wireviewctl "$UPSTREAM/wireviewctl.c"
+# Step 3: Build userspace tools, statically linked against musl.
+# A static glibc binary still loads the host's NSS libraries for group and
+# host name lookups, and crashes when the host glibc is a different version.
+# wireviewd looks up the wireview group at startup, so it has to be musl,
+# which reads /etc/group and /etc/hosts itself.
+# musl-gcc does not see the kernel headers (linux/limits.h), so expose only
+# those, not the glibc headers next to them.
+KHEADERS=/build/kheaders
+mkdir -p "$KHEADERS"
+ln -sfn /usr/include/linux "$KHEADERS/linux"
+ln -sfn /usr/include/asm-generic "$KHEADERS/asm-generic"
+ln -sfn "/usr/include/$(gcc -print-multiarch)/asm" "$KHEADERS/asm"
 
-echo "Built: wireviewd, wireviewctl"
+# Both link the vendored SHA-256/HMAC: wireviewd checks signed LAN commands,
+# wireviewctl signs them for --host. The upstream version goes into
+# "wireviewd -V", "wireviewctl --version" and the daemon log.
+UPSTREAM_VERSION=$(tr -d '[:space:]' < "$UPSTREAM/VERSION")
+for tool in wireviewd wireviewctl; do
+    musl-gcc "-DWIREVIEW_PKG_VERSION=\"${UPSTREAM_VERSION}\"" -isystem "$KHEADERS" \
+        -Wall -Wextra -Wno-format-truncation -O2 -static -s \
+        -o "/build/$tool" "$UPSTREAM/$tool.c" "$UPSTREAM/sha256.c"
+    file "/build/$tool" | grep -q "statically linked" || {
+        echo "ERROR: $tool is not statically linked"; exit 1; }
+done
+[ "$(/build/wireviewd -V)" = "wireviewd ${UPSTREAM_VERSION}" ] || {
+    echo "ERROR: wireviewd does not report version ${UPSTREAM_VERSION}"; exit 1; }
+
+echo "Built: wireviewd, wireviewctl (wireview-hwmon ${UPSTREAM_VERSION})"
 
 echo ""
 echo "=== Building static dfu-util (for wireviewctl flash) ==="
