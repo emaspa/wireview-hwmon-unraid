@@ -8,7 +8,7 @@ Based on the [wireview-hwmon](https://github.com/emaspa/wireview-hwmon) project.
 
 ## Requirements
 
-- Unraid 7.2.3 or later
+- Unraid 7.2.3 or later; a Noctua Edition works the same
 - Thermal Grizzly WireView Pro II connected via USB to the Unraid host (not passed through to a VM)
 
 ## Installation
@@ -34,7 +34,9 @@ The plugin will automatically download the correct package for your kernel versi
 | `wireview_hwmon.ko` | Kernel module exposing sensors via `/sys/class/hwmon/` |
 | `wireviewd` | Daemon that reads the USB device and feeds data to the kernel module |
 | `wireviewctl` | CLI tool for querying sensors, sending device commands, and firmware flashing |
-| `dfu-util` + firmware v05 | Bundled statically so `wireviewctl flash` works out of the box |
+
+`wireviewd`, `wireviewctl` and `dfu-util` are static binaries; the two WireView tools are linked against musl so they do not depend on the glibc version Unraid ships.
+| `dfu-util` + firmware v05 build 20260902_0741 | Bundled statically so `wireviewctl flash` needs no downloads |
 | Web GUI | Dashboard tile with live readings + full device configuration page |
 | Fault monitor | Background service that sends Unraid notifications on fault events |
 
@@ -42,20 +44,23 @@ The plugin will automatically download the correct package for your kernel versi
 
 The plugin adds a movable tile to the Unraid dashboard showing live sensor readings organized into sections:
 
-- **Voltage** - per-pin and average
+- **Voltage** - per-pin, average and the Vdd supply
 - **Current** - per-pin and total
 - **Power** - per-pin and total
-- **Temperature** - onboard and external probes
-- **Status** - fan duty, fault status/log, PSU capability
+- **Temperature** - onboard and external probes; a probe that is not connected is left out
+- **Status** - fan duty, fault status and log by name, PSU capability, energy since the daemon started
 
-Data auto-refreshes every 2 seconds with color-coded status orbs (green/orange/red).
+The header shows the total power next to a status orb that turns red on a fault. Each row has its own orb: a pin, total or temperature turns red while its alarm is set, and a temperature above 70 C turns orange.
+
+Under **Settings > Utilities > WireView Pro II > Dashboard Tile** you can pick which rows the tile lists, what the header shows and the refresh interval, from 1 to 10 seconds. The header can show total power, total current, average voltage, hottest temperature or energy. The choice is stored on the flash drive and applies on the tile's next refresh.
 
 ## Settings Page
 
 Under **Settings > Utilities > WireView Pro II**, the plugin provides:
 
 - Daemon start/stop/restart controls
-- Device info (firmware version, UID, build string)
+- Device info: firmware version, UID, build string, product and edition
+- Dashboard tile rows, header and refresh interval
 - Full device configuration matching the WireView II Pro GUI app:
   - **General** - friendly name
   - **Fan Control** - mode (curve/fixed), temperature source, duty min/max, temp min/max
@@ -71,8 +76,8 @@ Under **Settings > Utilities > WireView Pro II**, the plugin provides:
 
 A background monitor polls the device every 30 seconds and sends Unraid notifications on:
 
-- Fault state transitions (alert when fault detected, normal when cleared)
-- High temperature warnings (above 80°C)
+- Fault state transitions: an alert naming the faults when one appears, a normal notice when it clears
+- High temperature warnings above 80 C
 
 ## LAN monitoring
 
@@ -122,9 +127,14 @@ wireviewctl screen pause
 wireviewctl screen resume
 
 # Update the device firmware to the bundled image over DFU (add -y for no
-# prompt). Unofficial tool: flash at your own risk. Also works if the device
-# is already stuck in bootloader mode.
+# prompt). Refuses an older image, an image for another product and the
+# build the device already runs; --force overrides. Unofficial tool: flash
+# at your own risk. Also works if the device is already stuck in bootloader
+# mode.
 wireviewctl flash
+
+# All readings as JSON, the same schema as GET /sensors on the LAN listener
+wireviewctl sensors --json
 
 # Live dashboard (local + remote hosts; q to quit)
 wireviewctl top
