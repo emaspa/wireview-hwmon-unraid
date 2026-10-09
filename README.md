@@ -143,7 +143,7 @@ wireviewctl top --host 192.168.1.50
 
 ## Supported Unraid versions
 
-Pre-built packages cover every Unraid release since 7.2.3, plus the current 7.4.0 beta. The plugin downloads the package matching your running kernel.
+Pre-built packages cover every Unraid release since 7.2.3, plus the 7.4.0 beta and release candidate. The plugin downloads the package matching your running kernel.
 
 | Unraid | Kernel |
 |---|---|
@@ -155,6 +155,7 @@ Pre-built packages cover every Unraid release since 7.2.3, plus the current 7.4.
 | 7.3.0 | 6.18.29-Unraid |
 | 7.3.1 | 6.18.33-Unraid |
 | 7.3.2 | 6.18.38-Unraid |
+| 7.3.3, 7.4.0-rc.1 | 6.18.54-Unraid |
 | 7.4.0-beta.3 | 6.18.52-Unraid |
 
 Check the [releases page](https://github.com/emaspa/wireview-hwmon-unraid/releases) for all available packages.
