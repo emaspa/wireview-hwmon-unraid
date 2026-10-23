@@ -16,7 +16,8 @@
   <CHANGES>
 ## 0.16.4
 - Package for kernel 6.18.58-Unraid, ahead of the Unraid release that
-  ships it, so the plugin installs on that release from day one.
+  ships it, so the plugin installs on that release from day one. That
+  kernel turned out to ship with Unraid 7.3.4 and 7.4.0-rc.2.
 
 ## 0.16.3
 - Update to wireview-hwmon 1.8.1. wireviewd now retries a LAN listener
