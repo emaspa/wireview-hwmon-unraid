@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.16.5">
+  <!ENTITY version   "0.16.6">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,11 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.16.6
+- Package for kernel 6.18.60-Unraid, ahead of the Unraid release that
+  ships it, so the plugin installs on that release from day one.
+- Unraid 7.2.9 uses the 7.2.8 kernel and is covered by its package.
+
 ## 0.16.5
 - Package for kernel 6.18.59-Unraid, ahead of the Unraid release that
   ships it, so the plugin installs on that release from day one.
