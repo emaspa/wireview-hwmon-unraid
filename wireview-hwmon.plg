@@ -16,7 +16,8 @@
   <CHANGES>
 ## 0.16.6
 - Package for kernel 6.18.60-Unraid, ahead of the Unraid release that
-  ships it, so the plugin installs on that release from day one.
+  ships it, so the plugin installs on that release from day one. That
+  kernel turned out to ship with Unraid 7.3.5 and 7.4.0.
 - Unraid 7.2.9 uses the 7.2.8 kernel and is covered by its package.
 
 ## 0.16.5
