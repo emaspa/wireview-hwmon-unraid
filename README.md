@@ -160,6 +160,7 @@ Pre-built packages cover every Unraid release since 7.2.3, plus the 7.4.0 beta a
 | 7.3.4, 7.4.0-rc.2 | 6.18.58-Unraid |
 | unreleased | 6.18.59-Unraid |
 | 7.3.5, 7.4.0 | 6.18.60-Unraid |
+| 7.3.6, 7.4.1 | 6.18.64-Unraid |
 
 Check the [releases page](https://github.com/emaspa/wireview-hwmon-unraid/releases) for all available packages.
 
