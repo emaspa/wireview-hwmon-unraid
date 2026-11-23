@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "wireview-hwmon">
   <!ENTITY author    "emaspa">
-  <!ENTITY version   "0.16.7">
+  <!ENTITY version   "0.17.0">
   <!ENTITY repo      "https://github.com/emaspa/wireview-hwmon-unraid">
   <!ENTITY pluginURL "&repo;/raw/main/wireview-hwmon.plg">
   <!ENTITY support   "https://forums.unraid.net/topic/197481-plugin-support-wireview-pro-ii-gpu-power-monitor-wireview-hwmon/">
@@ -14,6 +14,28 @@
   icon="bolt" min="7.2.0">
 
   <CHANGES>
+## 0.17.0
+- Several WireViews on one server. Update to wireview-hwmon 1.9.0: the
+  daemon drives up to 8 WireViews, each its own hwmon device (wireview,
+  wireview1, ...) named by its edition and the last digits of its USB
+  serial number.
+- Dashboard tile: each WireView under its own name line with its headline
+  and rows; the header counts them and shows the headline over all of them
+  (sums of power, current and energy, the hottest temperature), with a red
+  orb while any of them has a fault.
+- Settings page: the WireViews listed under Status with their power and
+  faults, and a WireView picker for Device Info and Device Configuration.
+  Apply, the NVM buttons and Clear Faults act on the picked unit only, and
+  a unit unplugged meanwhile is refused instead of another one being
+  written.
+- Fault alerts watch every WireView and name the unit.
+- wireviewctl: `devices` lists the WireViews, `--device` picks one, and
+  `info`, `build` and `sensors` cover every unit. Commands that change a
+  device need `--device` while more than one is attached.
+- wireview-hwmon 1.9.0 relicensed wireviewd and wireviewctl under
+  GPL-3.0-or-later; the kernel module stays GPL-2.0-only.
+- One WireView: everything looks and works as before.
+
 ## 0.16.7
 - Package for kernel 6.18.64-Unraid, used by Unraid 7.3.6 and 7.4.1.
 
