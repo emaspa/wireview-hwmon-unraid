@@ -53,6 +53,7 @@ jobs:
           mkdir -p output cache
           docker build -t wireview-builder \
             --build-arg UNRAID_VERSION=${{ matrix.unraid_version }} \
+            --build-arg UBUNTU_MIRROR=http://azure.archive.ubuntu.com/ubuntu \
             build/
           docker run --rm \
             -v "${{ github.workspace }}:/src:ro" \

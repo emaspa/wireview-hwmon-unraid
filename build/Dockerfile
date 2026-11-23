@@ -1,8 +1,15 @@
 FROM ubuntu:24.04
 
 ARG UNRAID_VERSION=7.2.3
+# Ubuntu archive for apt, e.g. http://azure.archive.ubuntu.com/ubuntu on
+# GitHub's runners. Empty keeps the image's own archive.
+ARG UBUNTU_MIRROR=
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN if [ -n "$UBUNTU_MIRROR" ]; then \
+        sed -i -E "s#https?://(archive|security)\.ubuntu\.com/ubuntu/?#${UBUNTU_MIRROR%/}/#g" \
+            /etc/apt/sources.list.d/ubuntu.sources; \
+    fi \
+    && apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     bc \
     bison \
