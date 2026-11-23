@@ -78,7 +78,7 @@ stop() {
     kill "$(cat "$FAULT_PIDFILE")" 2>/dev/null
     rm -f "$FAULT_PIDFILE"
   fi
-  rm -f /tmp/wireview-hwmon-fault-state
+  rm -f /tmp/wireview-hwmon-fault-state /tmp/wireview-hwmon-fault-state-*
 
   if [ ! -f "$PIDFILE" ]; then
     echo "wireviewd is not running (no PID file)"

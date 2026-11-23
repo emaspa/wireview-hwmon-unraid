@@ -9,7 +9,7 @@ Based on the [wireview-hwmon](https://github.com/emaspa/wireview-hwmon) project.
 ## Requirements
 
 - Unraid 7.2.3 or later; a Noctua Edition works the same
-- Thermal Grizzly WireView Pro II connected via USB to the Unraid host (not passed through to a VM)
+- One or more Thermal Grizzly WireView Pro II connected via USB to the Unraid host (not passed through to a VM); up to 8
 
 ## Installation
 
@@ -34,11 +34,11 @@ The plugin will automatically download the correct package for your kernel versi
 | `wireview_hwmon.ko` | Kernel module exposing sensors via `/sys/class/hwmon/` |
 | `wireviewd` | Daemon that reads the USB device and feeds data to the kernel module |
 | `wireviewctl` | CLI tool for querying sensors, sending device commands, and firmware flashing |
-
-`wireviewd`, `wireviewctl` and `dfu-util` are static binaries; the two WireView tools are linked against musl so they do not depend on the glibc version Unraid ships.
 | `dfu-util` + firmware v05 build 20260902_0741 | Bundled statically so `wireviewctl flash` needs no downloads |
 | Web GUI | Dashboard tile with live readings + full device configuration page |
 | Fault monitor | Background service that sends Unraid notifications on fault events |
+
+`wireviewd`, `wireviewctl` and `dfu-util` are static binaries; the two WireView tools are linked against musl so they do not depend on the glibc version Unraid ships.
 
 ## Dashboard Tile
 
@@ -61,7 +61,7 @@ Under **Settings > Utilities > WireView Pro II**, the plugin provides:
 - Daemon start/stop/restart controls
 - Device info: firmware version, UID, build string, product and edition
 - Dashboard tile rows, header and refresh interval
-- Full device configuration matching the WireView II Pro GUI app:
+- Full device configuration matching the WireView Pro II desktop app:
   - **General** - friendly name
   - **Fan Control** - mode (curve/fixed), temperature source, duty min/max, temp min/max
   - **Protection Thresholds** - OCP, wire OCP, OPP, temperature fault, current imbalance
@@ -72,9 +72,31 @@ Under **Settings > Utilities > WireView Pro II**, the plugin provides:
 - Clear faults
 - **Network (LAN)** - publish this server's WireView on the LAN and (with a secret) accept authenticated remote writes/config. See below.
 
+## Several WireViews
+
+The daemon drives every WireView on the server, up to 8. Each one is its own
+hwmon device: `wireview` for the first, then `wireview1`, `wireview2` and so
+on, each named by a label with its edition and the last digits of its USB
+serial number (`WireView Pro II 3245`). A unit keeps its number across
+restarts while the server runs.
+
+- The **dashboard tile** lists each WireView under its own name line, with its
+  headline and its rows. The header shows how many there are and the
+  headline over all of them: total power, current and energy are summed,
+  the hottest temperature is the hottest of all, and the average voltage is
+  the mean. Its orb turns red when any of them has a fault.
+- The **settings page** lists the units under Status with their power and
+  faults, and a **WireView** picker chooses the one Device Info and Device
+  Configuration are for. Apply, the NVM buttons and Clear Faults act on that
+  one only. The browser remembers the choice.
+- **Fault alerts** cover every unit and name it.
+- **wireviewctl** shows every unit in `devices`, `info`, `build` and
+  `sensors`; commands that change a device need `--device` while more than
+  one is attached (see below).
+
 ## Fault Alerts
 
-A background monitor polls the device every 30 seconds and sends Unraid notifications on:
+A background monitor polls every WireView every 30 seconds and sends Unraid notifications on:
 
 - Fault state transitions: an alert naming the faults when one appears, a normal notice when it clears
 - High temperature warnings above 80 C
@@ -105,8 +127,15 @@ for the full protocol and security details.
 ## CLI usage
 
 ```bash
-# Show device info
+# List the WireViews (index, USB serial, UID, edition, firmware, port)
+wireviewctl devices
+
+# Show device info (every WireView, one block each)
 wireviewctl info
+
+# With several WireViews, pick one for a command by index, UID or the last
+# digits of its USB serial number
+wireviewctl --device 3245 nvm store
 
 # Read device config (hex blob)
 wireviewctl read-config
@@ -202,4 +231,9 @@ The resulting `.txz` package will be in `output/`.
 
 ## License
 
-GPL-2.0 - see [LICENSE](LICENSE)
+The plugin's own files are GPL-2.0, see [LICENSE](LICENSE). The bundled
+wireview-hwmon components keep their licenses: `wireviewd` and `wireviewctl`
+are GPL-3.0-or-later since wireview-hwmon 1.9.0, the kernel module is
+GPL-2.0-only, `dfu-util` is GPL-2.0-or-later, and the firmware image is
+Thermal Grizzly's (see the
+[wireview-hwmon license notes](https://github.com/emaspa/wireview-hwmon#license)).

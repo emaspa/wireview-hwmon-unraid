@@ -3,7 +3,7 @@
  * WireviewDashboard.php - dashboard tile contents and settings
  *
  * GET ?tile=1 -> the rows the tile shows, formatted and filtered by the
- *                saved settings
+ *                saved settings, for every WireView
  * GET         -> the saved settings plus the catalog of available rows,
  *                for the settings page
  * POST        -> save settings to /boot/config/plugins/wireview-hwmon/dashboard.cfg
@@ -228,6 +228,13 @@ function headlineText(string $choice, array $s): string {
     }
 }
 
+/**
+ * The tile: every WireView with its own headline and rows. The header shows
+ * the one WireView, or with several the count and the headline over all of
+ * them (sums of power, current and energy, the hottest temperature, the
+ * mean of the average voltages); its orb is red while any of them has a
+ * fault.
+ */
 function tileContents(array $cfg): array {
     $out = [
         'online'   => false,
@@ -236,20 +243,61 @@ function tileContents(array $cfg): array {
         'color'    => 'grey',
         'refresh'  => $cfg['refresh'],
         'sections' => [],
+        'devices'  => [],
     ];
 
-    $hwmon = findWireviewHwmon();
-    $s = $hwmon !== null ? readSensors($hwmon) : ['has_data' => false];
-    if (!$s['has_data']) return $out;
+    $readings = [];
+    foreach (findWireviewDevices() as $dev) {
+        $s = readSensors($dev['path']);
+        $entry = deviceTile($cfg, $dev, $s);
+        $out['devices'][] = $entry;
+        if ($s['has_data']) $readings[] = $s;
+    }
+    $count = count($out['devices']);
+    if ($count === 0) return $out;
 
-    $info = readDeviceInfo();
-    if (!empty($info['edition']) && $info['edition'] !== 'unknown') {
-        $out['title'] = $info['edition'];
+    if ($count === 1) {
+        // One WireView: the tile as before, its rows right under the header.
+        // Its edition is name enough: the label's serial digits tell units apart.
+        $only = $out['devices'][0];
+        foreach (['online', 'title', 'headline', 'color', 'sections'] as $k) $out[$k] = $only[$k];
+        if ($only['online']) {
+            $info = readDeviceInfo(findWireviewDevices()[0]);
+            if (!empty($info['edition']) && $info['edition'] !== 'unknown') $out['title'] = $info['edition'];
+        }
+        return $out;
     }
 
+    $out['title'] = "$count WireViews";
+    if (!$readings) return $out;
     $out['online'] = true;
-    $out['headline'] = headlineText($cfg['headline'], $s);
-    $out['color'] = $s['fault_status'] ? 'red' : 'green';
+    $out['headline'] = combinedHeadline($cfg['headline'], $readings);
+    $colors = array_column($out['devices'], 'color');
+    $out['color'] = in_array('red', $colors, true) ? 'red' : (in_array('grey', $colors, true) ? 'orange' : 'green');
+    return $out;
+}
+
+/** One WireView's part of the tile. */
+function deviceTile(array $cfg, array $dev, array $s): array {
+    $entry = [
+        'uid'      => $dev['uid'],
+        'online'   => false,
+        'title'    => deviceTitle($dev),
+        'headline' => 'Offline',
+        'color'    => 'grey',
+        'sections' => [],
+    ];
+    if (!$s['has_data']) return $entry;
+
+    // An older module has no label: the edition from the daemon instead.
+    if ($dev['label'] === null) {
+        $info = readDeviceInfo($dev);
+        if (!empty($info['edition']) && $info['edition'] !== 'unknown') $entry['title'] = $info['edition'];
+    }
+
+    $entry['online'] = true;
+    $entry['headline'] = headlineText($cfg['headline'], $s);
+    $entry['color'] = $s['fault_status'] ? 'red' : 'green';
 
     $values = tileRows($s);
     $hidden = array_flip($cfg['hidden']);
@@ -261,7 +309,29 @@ function tileContents(array $cfg): array {
             $rows[] = ['id' => $id, 'label' => $row['label'],
                        'value' => $values[$id][0], 'color' => $values[$id][1]];
         }
-        if ($rows) $out['sections'][] = ['title' => $section['title'], 'rows' => $rows];
+        if ($rows) $entry['sections'][] = ['title' => $section['title'], 'rows' => $rows];
     }
-    return $out;
+    return $entry;
+}
+
+/** The header's headline over several WireViews' readings. */
+function combinedHeadline(string $choice, array $readings): string {
+    $sum = function (string $key) use ($readings): ?int {
+        $vals = array_filter(array_column($readings, $key), fn($v) => $v !== null);
+        return $vals ? array_sum($vals) : null;
+    };
+    switch ($choice) {
+        case 'current': return fmtA($sum('total_current'));
+        case 'energy':  return fmtE($sum('energy'));
+        case 'voltage':
+            $vals = array_filter(array_column($readings, 'avg_voltage'), fn($v) => $v !== null);
+            return fmtV($vals ? (int)round(array_sum($vals) / count($vals)) : null);
+        case 'temp':
+            $temps = [];
+            foreach ($readings as $s) {
+                foreach ($s['temp'] as $t) if ($t !== null) $temps[] = $t;
+            }
+            return $temps ? fmtT(max($temps)) : 'N/A';
+        default:        return fmtW($sum('total_power'));
+    }
 }

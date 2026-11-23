@@ -25,6 +25,13 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
     </tr>
   </table>
 
+  <div id="wv-devices-block" style="display:none;margin-top:10px;">
+    <table class="wireview-sensor-table">
+      <thead><tr><th>#</th><th>WireView</th><th>USB Serial</th><th>Power</th><th>Faults</th></tr></thead>
+      <tbody id="wv-devices"></tbody>
+    </table>
+  </div>
+
   <div style="margin-top: 10px;">
     <button onclick="wireviewCtl('start')" class="wv-btn">Start</button>
     <button onclick="wireviewCtl('stop')" class="wv-btn">Stop</button>
@@ -63,6 +70,13 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
     <button onclick="wireviewSaveDashboard()" class="wv-btn">Save</button>
     <button onclick="wireviewDashboardShowAll()" class="wv-btn">Show All</button>
   </div>
+</div>
+
+<div id="wv-device-pick" class="wireview-section" style="display:none;">
+  <table class="wireview-info-table">
+    <tr><td>WireView:</td><td><select id="wv-device-select" onchange="wireviewSelectDevice(this.value)" style="width:320px"></select>
+      <span style="opacity:0.7;font-size:12px;margin-left:8px;">Device Info and Device Configuration below are for this one.</span></td></tr>
+  </table>
 </div>
 
 <div id="wireview-device" class="wireview-section" style="display:none;">
@@ -172,6 +186,52 @@ $moduleLoaded = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")
 <script>
 var wireviewTimer = null;
 var wvConfigData = null; // stores full config response for read-modify-write
+// The WireView (chip UID) Device Info and Device Configuration are for; ''
+// is the primary one. Remembered in this browser.
+var wvDevice = '';
+try { wvDevice = localStorage.getItem('wireview-hwmon-device') || ''; } catch (e) {}
+
+function wvEsc(text) { return $('<span>').text(text == null ? '' : String(text)).html(); }
+
+function wvDeviceParam() { return wvDevice ? '?device=' + encodeURIComponent(wvDevice) : ''; }
+
+function wireviewSelectDevice(uid) {
+  if (uid === wvDevice) return;
+  wvDevice = uid;
+  try { localStorage.setItem('wireview-hwmon-device', uid); } catch (e) {}
+  $('#wv-config-success').hide();
+  wireviewRefresh();
+  wireviewLoadConfig();
+}
+
+function wireviewRenderDevices(devices, selected) {
+  if (!devices || devices.length < 2) {
+    $('#wv-devices-block').hide();
+    $('#wv-device-pick').hide();
+    return;
+  }
+  var html = '';
+  $.each(devices, function(i, d) {
+    var power = d.online && d.total_power !== null ? (d.total_power / 1000000).toFixed(2) + ' W' : 'Offline';
+    html += '<tr><td>' + d.index + '</td><td>' + wvEsc(d.label) + '</td><td>' + wvEsc(d.serial || '-') + '</td>' +
+            '<td>' + power + '</td><td class="' + (d.fault ? 'wv-err' : 'wv-ok') + '">' + wvEsc(d.fault || 'None') + '</td></tr>';
+  });
+  $('#wv-devices').html(html);
+  $('#wv-devices-block').show();
+
+  // The picker, rebuilt only when the set of WireViews changes (keeps it usable while open).
+  var $sel = $('#wv-device-select');
+  var key = $.map(devices, function(d) { return d.uid + '|' + d.label; }).join(',');
+  if ($sel.data('key') !== key) {
+    $sel.empty();
+    $.each(devices, function(i, d) {
+      if (d.uid) $sel.append($('<option>').val(d.uid).text(d.label + (d.serial ? ' (' + d.serial + ')' : '')));
+    });
+    $sel.data('key', key);
+  }
+  $sel.val(selected);
+  $('#wv-device-pick').show();
+}
 
 function wireviewCtl(action) {
   $.post('/plugins/<?=$plugin?>/include/WireviewSensors.php', {action: action}, function(data) {
@@ -183,7 +243,13 @@ function wireviewCtl(action) {
 }
 
 function wireviewRefresh() {
-  $.getJSON('/plugins/<?=$plugin?>/include/WireviewSensors.php', function(data) {
+  $.getJSON('/plugins/<?=$plugin?>/include/WireviewSensors.php' + wvDeviceParam(), function(data) {
+    // A remembered WireView that is gone: back to the primary one.
+    if (wvDevice && data.device && data.device !== wvDevice) {
+      wvDevice = data.device;
+      wireviewLoadConfig();
+    }
+    wireviewRenderDevices(data.devices, data.device);
     if (data.daemon_running) {
       $('#wv-daemon-status').text('Running').removeClass('wv-err').addClass('wv-ok');
     } else {
@@ -198,7 +264,7 @@ function wireviewRefresh() {
     if (data.device_info) {
       var html = '';
       $.each(data.device_info, function(key, val) {
-        html += '<tr><td>' + key + ':</td><td>' + val + '</td></tr>';
+        html += '<tr><td>' + wvEsc(key) + ':</td><td>' + wvEsc(val) + '</td></tr>';
       });
       $('#wv-device-info').html(html);
       $('#wireview-device').show();
@@ -210,7 +276,9 @@ function wireviewLoadConfig() {
   $('#wv-config-loading').show();
   $('#wv-config-form').hide();
   $('#wv-config-error').hide();
-  $.getJSON('/plugins/<?=$plugin?>/include/WireviewConfig.php', function(data) {
+  var requested = wvDevice;
+  $.getJSON('/plugins/<?=$plugin?>/include/WireviewConfig.php' + wvDeviceParam(), function(data) {
+    if (requested !== wvDevice) return; // another WireView was picked meanwhile
     $('#wv-config-loading').hide();
     if (data.error) {
       $('#wv-config-error').text(data.error).show();
@@ -375,7 +443,9 @@ function wireviewSaveConfig() {
     cfg.display_inversion = $('#cfg-display-inversion').is(':checked') ? 1 : 0;
   }
 
+  // To the WireView the form was read from.
   var payload = {
+    device: wvConfigData.device || '',
     raw_hex: wvConfigData.raw_hex,
     config_version: wvConfigData.config_version,
     config: cfg
@@ -411,7 +481,7 @@ function wireviewNvm(cmd) {
     url: '/plugins/<?=$plugin?>/include/WireviewConfig.php',
     type: 'POST',
     contentType: 'application/json',
-    data: JSON.stringify({nvm: cmd}),
+    data: JSON.stringify({nvm: cmd, device: wvConfigData ? (wvConfigData.device || '') : wvDevice}),
     dataType: 'json',
     success: function(data) {
       if (data.error) {
@@ -430,7 +500,7 @@ function wireviewClearFaults() {
     url: '/plugins/<?=$plugin?>/include/WireviewConfig.php',
     type: 'POST',
     contentType: 'application/json',
-    data: JSON.stringify({clear_faults: true}),
+    data: JSON.stringify({clear_faults: true, device: wvConfigData ? (wvConfigData.device || '') : wvDevice}),
     dataType: 'json',
     success: function(data) {
       if (data.error) {

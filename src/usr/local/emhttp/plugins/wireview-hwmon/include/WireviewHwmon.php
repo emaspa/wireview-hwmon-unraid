@@ -16,27 +16,99 @@ const WIREVIEW_FAULT_BITS = [
     5 => 'Current Imbalance',
 ];
 
+/** wireviewctl, unless WIREVIEWCTL names another one (for testing). */
+function wireviewctlPath(): string {
+    $override = getenv('WIREVIEWCTL');
+    return is_string($override) && $override !== '' ? $override : '/usr/local/bin/wireviewctl';
+}
+
 /**
- * Find the wireview hwmon sysfs path by scanning /sys/class/hwmon/.
- * WIREVIEW_HWMON_PATH overrides the scan, like it does for wireviewctl.
+ * Every WireView hwmon device, primary first. wireview-hwmon 1.9.0 gives
+ * each WireView its own instance: "wireview" for the daemon's primary
+ * device, then "wireview1", "wireview2" and so on, each with uid, serial
+ * and label attributes (an older module has one "wireview" instance and no
+ * such attributes). WIREVIEW_HWMON_PATH (colon-separated directories)
+ * overrides the scan, like it does for wireviewctl.
+ *
+ * Each entry: path, index (0 for "wireview"), uid, serial, label, all but
+ * path and index null when the module does not publish them.
  */
-function findWireviewHwmon(): ?string {
+function findWireviewDevices(): array {
+    $dirs = [];
     $override = getenv('WIREVIEW_HWMON_PATH');
     if (is_string($override) && $override !== '') {
-        return is_dir($override) ? rtrim($override, '/') : null;
-    }
-
-    $basePath = '/sys/class/hwmon';
-    if (!is_dir($basePath)) return null;
-
-    foreach (scandir($basePath) as $entry) {
-        if (strpos($entry, 'hwmon') !== 0) continue;
-        $namePath = "$basePath/$entry/name";
-        if (is_file($namePath) && trim(file_get_contents($namePath)) === 'wireview') {
-            return "$basePath/$entry";
+        foreach (explode(':', $override) as $dir) {
+            if ($dir !== '' && is_dir($dir)) $dirs[] = rtrim($dir, '/');
+        }
+    } else {
+        $basePath = '/sys/class/hwmon';
+        if (!is_dir($basePath)) return [];
+        foreach (scandir($basePath) as $entry) {
+            if (strpos($entry, 'hwmon') === 0) $dirs[] = "$basePath/$entry";
         }
     }
-    return null;
+
+    $devices = [];
+    foreach ($dirs as $dir) {
+        $name = is_file("$dir/name") ? trim((string)@file_get_contents("$dir/name")) : '';
+        if (!preg_match('/^wireview(\d*)$/', $name, $m)) continue;
+        $devices[] = [
+            'path'   => $dir,
+            'index'  => $m[1] === '' ? 0 : (int)$m[1],
+            'uid'    => readSysfsText("$dir/uid"),
+            'serial' => readSysfsText("$dir/serial"),
+            'label'  => readSysfsText("$dir/label"),
+        ];
+    }
+    usort($devices, fn($x, $y) => $x['index'] <=> $y['index']);
+    return $devices;
+}
+
+/**
+ * The device with chip UID $uid, or the primary one (the first) when $uid is
+ * empty or not attached. Null when there is no WireView.
+ */
+function findWireviewDevice(?string $uid = null): ?array {
+    $devices = findWireviewDevices();
+    if ($uid !== null && $uid !== '') {
+        foreach ($devices as $d) {
+            if ($d['uid'] !== null && strcasecmp($d['uid'], $uid) === 0) return $d;
+        }
+    }
+    return $devices[0] ?? null;
+}
+
+/** The primary WireView's hwmon path, or null. */
+function findWireviewHwmon(): ?string {
+    return findWireviewDevice()['path'] ?? null;
+}
+
+/** The name shown for a device: its label ("WireView Pro II 3245"), else the edition. */
+function deviceTitle(?array $dev, string $fallback = 'WireView Pro II'): string {
+    return ($dev !== null && $dev['label'] !== null) ? $dev['label'] : $fallback;
+}
+
+/**
+ * A wireviewctl command line for $dev: with --device <its UID> when the
+ * module publishes one, so the command reaches that WireView (wireviewctl
+ * refuses device commands without --device while several are attached).
+ * $args is appended as given; escape what it carries.
+ */
+function wireviewctlCommand(?array $dev, string $args): string {
+    $cmd = escapeshellarg(wireviewctlPath());
+    if ($dev !== null && $dev['uid'] !== null) {
+        $cmd .= ' --device ' . escapeshellarg($dev['uid']);
+    }
+    return "$cmd $args";
+}
+
+/** A sysfs attribute as trimmed text, or null when absent or empty. */
+function readSysfsText(string $file): ?string {
+    if (!is_file($file)) return null;
+    $val = @file_get_contents($file);
+    if ($val === false) return null;
+    $val = trim($val);
+    return $val === '' ? null : $val;
 }
 
 /**
@@ -130,12 +202,13 @@ function faultNames(int $mask): array {
 }
 
 /**
- * Device info from "wireviewctl info" as a key => value array, or null when
- * the daemon has no device. The daemon answers from its own copy, so this
+ * Device info from "wireviewctl info" for $dev (the primary WireView when
+ * null) as a key => value array, or null when the daemon has no device. The daemon answers from its own copy, so this
  * does not touch the serial port.
  */
-function readDeviceInfo(): ?array {
-    $info = trim((string)shell_exec("/usr/local/bin/wireviewctl info 2>/dev/null"));
+function readDeviceInfo(?array $dev = null): ?array {
+    $dev ??= findWireviewDevice();
+    $info = trim((string)shell_exec(wireviewctlCommand($dev, 'info') . ' 2>/dev/null'));
     if ($info === '') return null;
 
     $deviceInfo = [];

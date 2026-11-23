@@ -2,7 +2,8 @@
 /*
  * WireviewSensors.php - AJAX backend for WireView Pro II Unraid plugin
  *
- * GET  → returns JSON with sensor data, daemon status, device info
+ * GET  → returns JSON with daemon status, every WireView, and the sensor
+ *        data and device info of one (?device=<UID>, the primary by default)
  * POST → executes daemon control (start/stop/restart)
  */
 
@@ -23,27 +24,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Handle GET: sensor data
+// Handle GET: sensor data. ?device=<UID> picks the WireView whose readings
+// and device info come back; the primary one by default.
 $result = [
     'daemon_running' => false,
     'module_loaded'  => false,
+    'devices'        => [],
+    'device'         => null,
     'device_info'    => null,
     'sensors'        => ['has_data' => false],
 ];
 
 // Check daemon and module status
-$result['daemon_running'] = trim(shell_exec("pgrep -x wireviewd 2>/dev/null")) !== "";
-$result['module_loaded'] = trim(shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")) !== "0";
+$result['daemon_running'] = trim((string)shell_exec("pgrep -x wireviewd 2>/dev/null")) !== "";
+$result['module_loaded'] = trim((string)shell_exec("lsmod 2>/dev/null | grep -c '^wireview_hwmon'")) !== "0";
 
-// Find the wireview hwmon device
-$hwmonPath = findWireviewHwmon();
-
-if ($hwmonPath !== null) {
-    $result['sensors'] = readSensors($hwmonPath);
+// Every WireView, with its headline readings for the device list
+foreach (findWireviewDevices() as $d) {
+    $s = readSensors($d['path']);
+    $fault = $s['fault_status'] ?? 0;
+    $result['devices'][] = [
+        'uid'         => $d['uid'],
+        'index'       => $d['index'],
+        'serial'      => $d['serial'],
+        'label'       => deviceTitle($d, $d['index'] === 0 ? 'WireView Pro II' : "WireView Pro II ({$d['index']})"),
+        'online'      => $s['has_data'],
+        'total_power' => $s['total_power'],
+        'fault'       => $fault ? implode(', ', faultNames($fault)) : null,
+    ];
 }
 
-if ($result['daemon_running']) {
-    $result['device_info'] = readDeviceInfo();
+$dev = findWireviewDevice($_GET['device'] ?? null);
+if ($dev !== null) {
+    $result['device'] = $dev['uid'];
+    $result['sensors'] = readSensors($dev['path']);
+    if ($result['daemon_running']) {
+        $result['device_info'] = readDeviceInfo($dev);
+    }
 }
 
 echo json_encode($result);

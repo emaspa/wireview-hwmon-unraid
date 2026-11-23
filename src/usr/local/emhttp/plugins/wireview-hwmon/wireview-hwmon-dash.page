@@ -29,7 +29,8 @@ EOT;
 <script>
 // The tile shows what /include/WireviewDashboard.php?tile=1 returns: rows
 // already formatted and filtered by the settings saved under
-// Settings > Utilities > WireView Pro II > Dashboard Tile. The response
+// Settings > Utilities > WireView Pro II > Dashboard Tile, for each WireView
+// (under its own name line when there are several). The response
 // also carries the refresh interval, so a saved change applies on the
 // next poll without reloading the dashboard.
 var wireviewDashTimer = null;
@@ -47,17 +48,31 @@ function wireviewDashUpdate() {
     $('#wv-dash-headline').html('<i class="fa fa-circle orb ' + d.color + '-orb middle"></i> ' + d.headline);
 
     var rows = '';
-    $.each(d.sections, function(i, section) {
-      rows += '<tr class="wv-hdr"><td style="height:8px"></td></tr>';
-      rows += '<tr class="wv-hdr"><td><span class="w18"></span><span class="w72">' + section.title + '</span></td></tr>';
-      $.each(section.rows, function(j, r) {
-        rows += '<tr class="wv-data"><td>';
-        rows += '<span class="w18"><i class="fa fa-circle orb ' + r.color + '-orb middle"></i></span>';
-        rows += '<span class="w36">' + r.label + '</span>';
-        rows += '<span class="w36">' + r.value + '</span>';
-        rows += '</td></tr>';
+    var sectionRows = function(sections) {
+      $.each(sections, function(i, section) {
+        rows += '<tr class="wv-hdr"><td style="height:8px"></td></tr>';
+        rows += '<tr class="wv-hdr"><td><span class="w18"></span><span class="w72">' + section.title + '</span></td></tr>';
+        $.each(section.rows, function(j, r) {
+          rows += '<tr class="wv-data"><td>';
+          rows += '<span class="w18"><i class="fa fa-circle orb ' + r.color + '-orb middle"></i></span>';
+          rows += '<span class="w36">' + r.label + '</span>';
+          rows += '<span class="w36">' + r.value + '</span>';
+          rows += '</td></tr>';
+        });
       });
-    });
+    };
+    if (d.devices && d.devices.length > 1) {
+      // Several WireViews: each under a line with its name, orb and headline.
+      $.each(d.devices, function(i, dev) {
+        rows += '<tr class="wv-hdr"><td style="height:12px"></td></tr>';
+        rows += '<tr class="wv-hdr"><td><span class="w18"><i class="fa fa-circle orb ' + dev.color + '-orb middle"></i></span>';
+        rows += '<span class="w36"><b>' + $('<span>').text(dev.title).html() + '</b></span>';
+        rows += '<span class="w36">' + dev.headline + '</span></td></tr>';
+        sectionRows(dev.sections);
+      });
+    } else {
+      sectionRows(d.sections);
+    }
     $tile.append(rows);
     wireviewDashSchedule(d.refresh || 2);
   }).fail(function() {

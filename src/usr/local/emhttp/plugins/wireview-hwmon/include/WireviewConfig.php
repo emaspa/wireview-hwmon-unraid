@@ -5,10 +5,16 @@
  * GET  → returns JSON with parsed device config
  * POST → writes modified config fields back to device
  *
+ * The WireView is picked by chip UID: ?device=<UID> on GET, "device" in the
+ * POST body. Without one the primary WireView is used; a UID that is no
+ * longer attached is refused, so a write never lands on another unit.
+ *
  * Config is read/written as a hex blob via wireviewctl.
  * We parse known fields at fixed byte offsets matching the firmware struct layout.
  * The full blob is preserved on write so unknown/reserved bytes are untouched.
  */
+
+require_once __DIR__ . '/WireviewHwmon.php';
 
 header('Content-Type: application/json');
 
@@ -125,6 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['error' => 'Bad request body (not JSON)']);
         exit;
     }
+    $WV_DEVICE = resolveDevice($input['device'] ?? null);
     if (isset($input['nvm'])) {
         handleNvm($input['nvm']);
     } elseif (isset($input['clear_faults'])) {
@@ -133,7 +140,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         handleWrite($input);
     }
 } else {
+    $WV_DEVICE = resolveDevice($_GET['device'] ?? null);
     handleRead();
+}
+
+
+/** The WireView a request is for (see the header comment); exits with an error when it is gone. */
+function resolveDevice($uid): ?array {
+    $uid = is_string($uid) ? trim($uid) : '';
+    $dev = findWireviewDevice($uid);
+    if ($uid !== '' && ($dev === null || $dev['uid'] === null || strcasecmp($dev['uid'], $uid) !== 0)) {
+        echo json_encode(['error' => 'That WireView is no longer attached. Reload the page.']);
+        exit;
+    }
+    return $dev;
 }
 
 
@@ -143,21 +163,23 @@ function handleNvm(string $cmd) {
         echo json_encode(['error' => 'Invalid NVM command']);
         return;
     }
-    $output = trim(shell_exec("wireviewctl nvm " . escapeshellarg($cmd) . " 2>&1"));
+    global $WV_DEVICE;
+    $output = trim((string)shell_exec(wireviewctlCommand($WV_DEVICE, 'nvm ' . escapeshellarg($cmd)) . ' 2>&1'));
     echo json_encode(['success' => true, 'message' => "NVM $cmd: $output"]);
 }
 
 
 function handleClearFaults() {
-    $output = trim(shell_exec("wireviewctl clear-faults 2>&1"));
+    global $WV_DEVICE;
+    $output = trim((string)shell_exec(wireviewctlCommand($WV_DEVICE, 'clear-faults') . ' 2>&1'));
     echo json_encode(['success' => true, 'message' => $output]);
 }
 
 
 function handleRead() {
-    global $ENUMS, $FAULT_BITS, $SCREEN_BITS;
+    global $ENUMS, $FAULT_BITS, $SCREEN_BITS, $WV_DEVICE;
 
-    $hex = trim(shell_exec("wireviewctl read-config 2>/dev/null"));
+    $hex = trim((string)shell_exec(wireviewctlCommand($WV_DEVICE, 'read-config') . ' 2>/dev/null'));
     if (empty($hex) || strlen($hex) < 140) {
         echo json_encode(['error' => 'Failed to read config from device']);
         return;
@@ -165,7 +187,7 @@ function handleRead() {
 
     // wireviewctl outputs hex to stdout, config_version to stderr
     // Parse the config version from wireviewctl info
-    $info = trim(shell_exec("wireviewctl info 2>/dev/null"));
+    $info = trim((string)shell_exec(wireviewctlCommand($WV_DEVICE, 'info') . ' 2>/dev/null'));
     $configVersion = 0;
     if (preg_match('/config_version:\s*(\d+)/', $info, $m)) {
         $configVersion = (int)$m[1];
@@ -188,7 +210,7 @@ function handleRead() {
         $configVersion = $sizeMap[$nbytes];
     }
 
-    $result = ['config_version' => $configVersion, 'raw_hex' => $hex, 'config' => []];
+    $result = ['config_version' => $configVersion, 'raw_hex' => $hex, 'device' => $WV_DEVICE['uid'] ?? null, 'config' => []];
     $cfg = &$result['config'];
 
     // Parse common fields
@@ -360,7 +382,8 @@ function handleWrite(?array $input) {
     file_put_contents($tmpFile, $newHex);
 
     // Write config to device
-    $output = trim(shell_exec("wireviewctl write-config " . escapeshellarg($tmpFile) . " 2>&1"));
+    global $WV_DEVICE;
+    $output = trim((string)shell_exec(wireviewctlCommand($WV_DEVICE, 'write-config ' . escapeshellarg($tmpFile)) . ' 2>&1'));
     unlink($tmpFile);
 
     if (strpos($output, 'config written') === false) {
